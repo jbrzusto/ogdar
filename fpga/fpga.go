@@ -1,7 +1,6 @@
 package fpga
 
 import (
-	"fmt"
 	"os"
 	"syscall"
 	"unsafe"
@@ -320,9 +319,9 @@ type OgdarFPGARegMem struct {
 	SavedTrigAtARP uint32 //  saved_trig_at_arp:  value at start of most recently captured pulse
 }
 
-type struct OgdarFPGA {
-	OscFPGARegMem osc  // Oscilloscope FPGA registers
-	OgdarFPGARegMem ogd // Ogdar FPGA registers
+type OgdarFPGA struct {
+	Osc *OscFPGARegMem  // Oscilloscope FPGA registers
+	Ogd *OgdarFPGARegMem // Ogdar FPGA registers
 	VidBuf *[SAMPLES_PER_BUFF] uint32 // video sample buffer; these are the radar "data"
 	TrigBuf *[SAMPLES_PER_BUFF] uint32 // trigger sample buffer; used when configuring digitizer
 	ARPBuf *[SAMPLES_PER_BUFF] uint32 // ARP sample buffer; used when configuring digitizer
@@ -627,8 +626,9 @@ type struct OgdarFPGA {
 // }
 
 func Init() (fpga *OgdarFPGA) {
+	var err error
 	fpga = new(OgdarFPGA)
-	fpga.memfile, err := os.OpenFile("/dev/mem", os.O_RDWR, 0744)
+	fpga.memfile, err = os.OpenFile("/dev/mem", os.O_RDWR, 0744)
 	if err != nil {
 		return nil
 	}
@@ -636,13 +636,13 @@ func Init() (fpga *OgdarFPGA) {
 	if err != nil {
 		goto cleanup
 	}
-	fpga.ogd = (*OgdarFPGARegMem)(unsafe.Pointer(&mmap[0]))
-	mmap, err := syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR, OSC_FPGA_BASE_SIZE, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
+	fpga.Ogd = (*OgdarFPGARegMem)(unsafe.Pointer(&mmap[0]))
+	mmap, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR, OSC_FPGA_BASE_SIZE, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
 	}
-	fpga.osc = (*OscFPGARegMem)(unsafe.Pointer(&mmap[0]))
-	mmap, err := syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR + OSC_FPGA_CHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	fpga.Osc = (*OscFPGARegMem)(unsafe.Pointer(&mmap[0]))
+	mmap, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR + OSC_FPGA_CHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
 	}
