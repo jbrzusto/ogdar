@@ -7,9 +7,9 @@ import (
 )
 
 // Definitions for the redpitaya FPGA (digdar build)
-//  ChA & ChB data - 14 lowest bits valid; starts from 0x10000 and
+// ChA (Vid) & ChB (Trig) data - 14 lowest bits valid; starts from 0x10000 and
 // 0x20000 and are each 16k samples long
-// XChA & XChB data - 12 lowest bits valid; starts from 0x30000 and
+// XChA (ACP) & XChB (ARP) data - 12 lowest bits valid; starts from 0x30000 and
 // 0x40000 and are each 16k samples long
 
 const (
@@ -31,6 +31,10 @@ const (
 	OSC_FPGA_XCHB_OFFSET    = 0x40000     // Offset to the memory buffer where signal on slow channel B is captured.
 	DIGDAR_FPGA_BASE_ADDR   = 0x40600000  // Starting address of FPGA registers handling the Digdar module.
 	DIGDAR_FPGA_BASE_SIZE   = 0x0000B8    // The size of FPGA register block handling the Digdar module.
+	BPS_VID         = 14 // bits per sample, video channel sample (fast ADC A)
+	BPS_TRIG        = 14 // bits per sample, trigger channel sample (fast ADC B))
+	BPS_ARP         = 12 // bits per sample, ARP channel sample (slow ADC A)
+	BPS_ACP         = 12 // bits per sample, ACP channel sample (slow ADC B)
 )
 
 type OscFPGARegMem struct { // FPGA register structure for Oscilloscope core module.
@@ -322,6 +326,10 @@ type OgdarFPGARegMem struct {
 type OgdarFPGA struct {
 	Osc *OscFPGARegMem  // Oscilloscope FPGA registers
 	Ogd *OgdarFPGARegMem // Ogdar FPGA registers
+	vidSlice [] byte // video buffer as a byte slice; VidBuf points to vidSlice[0]
+	trigSlice [] byte // trigger buffer as a byte slice
+	acpSlice [] byte // ACP buffer as a byte slice
+	arpSlice [] byte // ARP buffer as a byte slice
 	VidBuf *[SAMPLES_PER_BUFF] uint32 // video sample buffer; these are the radar "data"
 	TrigBuf *[SAMPLES_PER_BUFF] uint32 // trigger sample buffer; used when configuring digitizer
 	ARPBuf *[SAMPLES_PER_BUFF] uint32 // ARP sample buffer; used when configuring digitizer
@@ -357,33 +365,6 @@ type OgdarFPGA struct {
 //  *
 //  * Nice example how to use this module can be seen in worker.c module.
 //  */
-
-// /* internal structures */
-// /** The FPGA register structure (defined in fpga_osc.h) */
-// osc_fpga_reg_mem_t *g_osc_fpga_reg_mem = NULL;
-
-// /* @brief Pointer to FPGA digdar control registers. */
-// digdar_fpga_reg_mem_t *g_digdar_fpga_reg_mem = NULL;
-
-// /** The FPGA input signal buffer pointer for channel A */
-// uint32_t           *g_osc_fpga_cha_mem = NULL;
-// /** The FPGA input signal buffer pointer for channel B */
-// uint32_t           *g_osc_fpga_chb_mem = NULL;
-
-// /** The FPGA input signal buffer pointer for slow channel A */
-// uint32_t           *g_osc_fpga_xcha_mem = NULL;
-// /** The FPGA input signal buffer pointer for slow channel B */
-// uint32_t           *g_osc_fpga_xchb_mem = NULL;
-
-// /** The memory file descriptor used to mmap() the FPGA space */
-// int             g_osc_fpga_mem_fd = -1;
-
-// /* Constants */
-// /** ADC number of bits */
-// const int c_osc_fpga_adc_bits = 14;
-
-// /** Slow ADC number of bits */
-// const int c_osc_fpga_xadc_bits = 12;
 
 // /** @brief Max and min voltage on ADCs.
 //  * Symetrical - Max Voltage = +14, Min voltage = -1 * c_osc_fpga_max_v
@@ -440,69 +421,6 @@ type OgdarFPGA struct {
 //  * @retval 0  Success
 //  * @retval -1 Failure, error is printed to standard error output.
 //  */
-// int osc_fpga_init(void)
-// {
-//     /* Page variables used to calculate correct mapping addresses */
-//     void *page_ptr;
-//     long page_addr, page_off, page_size = sysconf(_SC_PAGESIZE);
-
-//     /* If module was already initialized once, clean all internals. */
-//     if(__osc_fpga_cleanup_mem() < 0)
-//         return -1;
-
-//     /* Open /dev/mem to access directly system memory */
-//     g_osc_fpga_mem_fd = open("/dev/mem", O_RDWR | O_SYNC);
-//     if(g_osc_fpga_mem_fd < 0) {
-//         fprintf(stderr, "open(/dev/mem) failed: %s\n", strerror(errno));
-//         return -1;
-//     }
-
-//     /* Calculate correct page address and offset from OSC_FPGA_BASE_ADDR and
-//      * OSC_FPGA_BASE_SIZE
-//      */
-//     page_addr = OSC_FPGA_BASE_ADDR & (~(page_size-1));
-//     page_off  = OSC_FPGA_BASE_ADDR - page_addr;
-
-//     /* Map FPGA memory space to page_ptr. */
-//     page_ptr = mmap(NULL, OSC_FPGA_BASE_SIZE, PROT_READ | PROT_WRITE,
-//                           MAP_SHARED, g_osc_fpga_mem_fd, page_addr);
-//     if((void *)page_ptr == MAP_FAILED) {
-//         fprintf(stderr, "mmap() failed: %s\n", strerror(errno));
-//         __osc_fpga_cleanup_mem();
-//         return -1;
-//     }
-
-//     /* Set FPGA OSC module pointers to correct values. */
-//     g_osc_fpga_reg_mem = page_ptr + page_off;
-
-//     g_osc_fpga_cha_mem = (uint32_t *)g_osc_fpga_reg_mem +
-//         (OSC_FPGA_CHA_OFFSET / sizeof(uint32_t));
-
-//     g_osc_fpga_chb_mem = (uint32_t *)g_osc_fpga_reg_mem +
-//         (OSC_FPGA_CHB_OFFSET / sizeof(uint32_t));
-
-//     g_osc_fpga_xcha_mem = (uint32_t *)g_osc_fpga_reg_mem +
-//         (OSC_FPGA_XCHA_OFFSET / sizeof(uint32_t));
-
-//     g_osc_fpga_xchb_mem = (uint32_t *)g_osc_fpga_reg_mem +
-//         (OSC_FPGA_XCHB_OFFSET / sizeof(uint32_t));
-
-//     page_addr = DIGDAR_FPGA_BASE_ADDR & (~(page_size-1));
-//     page_off  = DIGDAR_FPGA_BASE_ADDR - page_addr;
-
-//     page_ptr = mmap(NULL, DIGDAR_FPGA_BASE_SIZE, PROT_READ | PROT_WRITE,
-//                           MAP_SHARED, g_osc_fpga_mem_fd, page_addr);
-
-//     if((void *)page_ptr == MAP_FAILED) {
-//         fprintf(stderr, "mmap() failed: %s\n", strerror(errno));
-//         __osc_fpga_cleanup_mem();
-//         return -1;
-//     }
-//     g_digdar_fpga_reg_mem = page_ptr + page_off;
-
-//     return 0;
-// }
-
 // /**
 //  * @brief Cleans up FPGA OSC module internals.
 //  *
@@ -625,7 +543,7 @@ type OgdarFPGA struct {
 //     return 0;
 // }
 
-func Init() (fpga *OgdarFPGA) {
+func Open() (fpga *OgdarFPGA) {
 	var err error
 	fpga = new(OgdarFPGA)
 	fpga.memfile, err = os.OpenFile("/dev/mem", os.O_RDWR, 0744)
@@ -642,13 +560,44 @@ func Init() (fpga *OgdarFPGA) {
 		goto cleanup
 	}
 	fpga.Osc = (*OscFPGARegMem)(unsafe.Pointer(&mmap[0]))
-	mmap, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR + OSC_FPGA_CHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	fpga.vidSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR + OSC_FPGA_CHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
 	}
-	fpga.VidBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&mmap[0]))
+	fpga.VidBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.vidSlice[0]))
+	fpga.trigSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR + OSC_FPGA_CHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	if err != nil {
+		goto cleanup
+	}
+	fpga.TrigBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.trigSlice[0]))
+	fpga.acpSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR + OSC_FPGA_XCHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	if err != nil {
+		goto cleanup
+	}
+	fpga.ACPBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.acpSlice[0]))
+	fpga.arpSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR + OSC_FPGA_XCHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	if err != nil {
+		goto cleanup
+	}
+	fpga.ARPBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.arpSlice[0]))
 	return fpga
 cleanup:
-	fpga.memfile.Close()
+	fpga.Close()
 	return nil
+}
+
+func (fpga *OgdarFPGA) Close() {
+	if fpga.memfile == nil {
+		return
+	}
+	_ = syscall.Munmap(fpga.arpSlice)
+	_ = syscall.Munmap(fpga.acpSlice)
+	_ = syscall.Munmap(fpga.trigSlice)
+	_ = syscall.Munmap(fpga.vidSlice)
+	fpga.ARPBuf = nil
+	fpga.ACPBuf = nil
+	fpga.TrigBuf = nil
+	fpga.VidBuf = nil
+	fpga.memfile.Close()
+	fpga.memfile = nil
 }
