@@ -1,4 +1,4 @@
-package ogdar
+package fpga
 
 import (
 	"fmt"
