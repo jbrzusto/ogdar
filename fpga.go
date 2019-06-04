@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-//	"io"
 	"os"
-//	"reflect"
 	"syscall"
 	"unsafe"
 )
@@ -320,7 +318,6 @@ type OgdarFPGARegMem struct {
 	SavedTrigAtARP uint32 //  saved_trig_at_arp:  value at start of most recently captured pulse
 }
 
-
 // /**
 //  * GENERAL DESCRIPTION:
 //  *
@@ -463,7 +460,6 @@ type OgdarFPGARegMem struct {
 //         return -1;
 //     }
 
-
 //     /* Set FPGA OSC module pointers to correct values. */
 //     g_osc_fpga_reg_mem = page_ptr + page_off;
 
@@ -510,7 +506,6 @@ type OgdarFPGARegMem struct {
 //       //      *(int *)(OSC_FPGA_SLOW_ADC_OFFSET + (char *) g_osc_fpga_reg_mem) = 0;
 //     return __osc_fpga_cleanup_mem();
 // }
-
 
 // /** @brief OSC FPGA ARM
 //  *
@@ -618,11 +613,17 @@ type OgdarFPGARegMem struct {
 //     return 0;
 // }
 
-func GetOgdar() (r *OgdarFPGARegMem) {
-	f, _ := os.OpenFile("/dev/mem", os.O_RDWR, 0744)
-	mmap, _ := syscall.Mmap(int(f.Fd()), DIGDAR_FPGA_BASE_ADDR, DIGDAR_FPGA_BASE_SIZE, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
-	r = (*OgdarFPGARegMem)(unsafe.Pointer(&mmap[0]))
-	return
+func GetOgdar() *OgdarFPGARegMem {
+	f, err := os.OpenFile("/dev/mem", os.O_RDWR, 0744)
+	if err != nil {
+		return nil
+	}
+	mmap, err := syscall.Mmap(int(f.Fd()), DIGDAR_FPGA_BASE_ADDR, DIGDAR_FPGA_BASE_SIZE, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
+	if err != nil {
+		f.Close()
+		return nil
+	}
+	return (*OgdarFPGARegMem)(unsafe.Pointer(&mmap[0]))
 }
 
 func main() {
