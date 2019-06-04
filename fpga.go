@@ -1,4 +1,4 @@
-package main
+package ogdar
 
 import (
 	"fmt"
@@ -14,11 +14,13 @@ import (
 // 0x40000 and are each 16k samples long
 
 const (
-	OSC_FPGA_BASE_ADDR      = 0x40100000  // Starting address of FPGA registers handling Oscilloscope module.
-	OSC_FPGA_BASE_SIZE      = 0x50000     // The size of FPGA registers handling Oscilloscope module.
-	OSC_FPGA_SIG_LEN        = (16 * 1024) // Size of data buffer into which input signal is captured , must be 2^n!.
-	OSC_FPGA_CONF_ARM_BIT   = 1           // Bit index in FPGA configuration register for arming the trigger.
-	OSC_FPGA_CONF_RST_BIT   = 2           // Bit index in FPGA configuration register for reseting write state machine.
+	SAMPLES_PER_BUFF        = 16 * 1024   // Number of samples in a signal buffer
+	BUFF_SIZE_BYTES         = 4 * SAMPLES_PER_BUFF // Samples in buff are uint32, so 4 bytes big
+	OSC_FPGA_BASE_ADDR      = 0x40100000  // Starting address of FPGA registers handling Oscilloscope module
+	OSC_FPGA_BASE_SIZE      = 0x50000     // The size of FPGA registers handling Oscilloscope module
+	OSC_FPGA_SIG_LEN        = SAMPLES_PER_BUFF // Size of data buffer into which input signal is captured , must be 2^n!
+	OSC_FPGA_CONF_ARM_BIT   = 1           // Bit index in FPGA configuration register for arming the trigger
+	OSC_FPGA_CONF_RST_BIT   = 2           // Bit index in FPGA configuration register for reseting write state machine
 	OSC_FPGA_POST_TRIG_ONLY = 4           // Bit index in FPGA configuration register for only writing after a trigger is detected
 	OSC_FPGA_TRIG_SRC_MASK  = 0x0000000f  // Bit mask in the trigger_source register for depicting the trigger source type.
 	OSC_FPGA_CHA_THR_MASK   = 0x00003fff  // Bit mask in the cha_thr register for depicting trigger threshold on channel A.
@@ -318,6 +320,17 @@ type OgdarFPGARegMem struct {
 	SavedTrigAtARP uint32 //  saved_trig_at_arp:  value at start of most recently captured pulse
 }
 
+type struct OgdarFPGA {
+	OscFPGARegMem osc  // Oscilloscope FPGA registers
+	OgdarFPGARegMem ogd // Ogdar FPGA registers
+	VidBuf *[SAMPLES_PER_BUFF] uint32 // video sample buffer; these are the radar "data"
+	TrigBuf *[SAMPLES_PER_BUFF] uint32 // trigger sample buffer; used when configuring digitizer
+	ARPBuf *[SAMPLES_PER_BUFF] uint32 // ARP sample buffer; used when configuring digitizer
+	ACPBuf *[SAMPLES_PER_BUFF] uint32 // ACP sample buffer; used when configuring digitizer
+	memfile *os.File // pointer to open file /dev/mem for mmaping registers
+
+}
+
 // /**
 //  * GENERAL DESCRIPTION:
 //  *
@@ -613,20 +626,29 @@ type OgdarFPGARegMem struct {
 //     return 0;
 // }
 
-func GetOgdar() *OgdarFPGARegMem {
-	f, err := os.OpenFile("/dev/mem", os.O_RDWR, 0744)
+func Init() (fpga *OgdarFPGA) {
+	fpga = new(OgdarFPGA)
+	fpga.memfile, err := os.OpenFile("/dev/mem", os.O_RDWR, 0744)
 	if err != nil {
 		return nil
 	}
-	mmap, err := syscall.Mmap(int(f.Fd()), DIGDAR_FPGA_BASE_ADDR, DIGDAR_FPGA_BASE_SIZE, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
+	mmap, err := syscall.Mmap(int(fpga.memfile.Fd()), DIGDAR_FPGA_BASE_ADDR, DIGDAR_FPGA_BASE_SIZE, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
 	if err != nil {
-		f.Close()
-		return nil
+		goto cleanup
 	}
-	return (*OgdarFPGARegMem)(unsafe.Pointer(&mmap[0]))
-}
-
-func main() {
-	og := GetOgdar()
-	fmt.Printf("ARP count: %d\nACP per ARP: %d\n", og.ARPCount, og.ACPPerARP)
+	fpga.ogd = (*OgdarFPGARegMem)(unsafe.Pointer(&mmap[0]))
+	mmap, err := syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR, OSC_FPGA_BASE_SIZE, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
+	if err != nil {
+		goto cleanup
+	}
+	fpga.osc = (*OscFPGARegMem)(unsafe.Pointer(&mmap[0]))
+	mmap, err := syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR + OSC_FPGA_CHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	if err != nil {
+		goto cleanup
+	}
+	fpga.VidBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&mmap[0]))
+	return fpga
+cleanup:
+	fpga.memfile.Close()
+	return nil
 }
