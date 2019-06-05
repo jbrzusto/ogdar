@@ -13,6 +13,10 @@ import (
 // 0x40000 and are each 16k samples long
 
 const (
+	FAST_ADC_CLOCK          = 125E6       // Fast ADC sampling rate, Hz (Vid, Trig)
+	FAST_ADC_SAMPLE_PERIOD  = 1.0 / FAST_ADC_CLOCK // Fast ADC sample period
+	SLOW_ADC_CLOCK          = 1E5         // Slow ADC sampling rate, Hz (ACP, ARP)
+	SLOW_ADC_SAMPLE_PERIOD  = 1.0 / SLOW_ADC_CLOCK // Slow ADC sample period
 	SAMPLES_PER_BUFF        = 16 * 1024   // Number of samples in a signal buffer
 	BUFF_SIZE_BYTES         = 4 * SAMPLES_PER_BUFF // Samples in buff are uint32, so 4 bytes big
 	OSC_FPGA_BASE_ADDR      = 0x40100000  // Starting address of FPGA registers handling Oscilloscope module
@@ -72,7 +76,7 @@ type OscFPGARegMem struct { // FPGA register structure for Oscilloscope core mod
 	// bits [13: 0] - ChB threshold
 	// bits [31:14] - reserved
 
-	TriggerDelay uint32 //  After trigger delay:
+	NumSamp uint32 //  Number of samples to write after being triggered
 	// bits [31: 0] - trigger delay
 	// 32 bit number - how many decimated samples should be stored into a buffer.
 	// (max 16k samples)
@@ -366,182 +370,6 @@ type OgdarFPGA struct {
 //  * Nice example how to use this module can be seen in worker.c module.
 //  */
 
-// /** @brief Max and min voltage on ADCs.
-//  * Symetrical - Max Voltage = +14, Min voltage = -1 * c_osc_fpga_max_v
-//  */
-// const float c_osc_fpga_adc_max_v  = +14;
-// /** Sampling frequency = 125Mspmpls (non-decimated) */
-// const float c_osc_fpga_smpl_freq = 125e6;
-// /** Sampling period (non-decimated) - 8 [ns] */
-// const float c_osc_fpga_smpl_period = (1. / 125e6);
-
-// /**
-//  * @brief Internal function used to clean up memory.
-//  *
-//  * This function un-maps FPGA register and signal buffers, closes memory file
-//  * descriptor and cleans all memory allocated by this module.
-//  *
-//  * @retval 0 Success
-//  * @retval -1 Error happened during cleanup.
-//  */
-// int __osc_fpga_cleanup_mem(void)
-// {
-//     /* If register structure is NULL we do not need to un-map and clean up */
-//     if(g_osc_fpga_reg_mem) {
-//         if(munmap(g_osc_fpga_reg_mem, OSC_FPGA_BASE_SIZE) < 0) {
-//             fprintf(stderr, "munmap() failed: %s\n", strerror(errno));
-//             return -1;
-//         }
-//         g_osc_fpga_reg_mem = NULL;
-//         if(g_osc_fpga_cha_mem)
-//             g_osc_fpga_cha_mem = NULL;
-//         if(g_osc_fpga_chb_mem)
-//             g_osc_fpga_chb_mem = NULL;
-//         if(g_osc_fpga_xcha_mem)
-//             g_osc_fpga_xcha_mem = NULL;
-//         if(g_osc_fpga_xchb_mem)
-//             g_osc_fpga_xchb_mem = NULL;
-//     }
-//     if(g_osc_fpga_mem_fd >= 0) {
-//         close(g_osc_fpga_mem_fd);
-//         g_osc_fpga_mem_fd = -1;
-//     }
-//     return 0;
-// }
-
-// /**
-//  * @brief Maps FPGA memory space and prepares register and buffer variables.
-//  *
-//  * This function opens memory device (/dev/mem) and maps physical memory address
-//  * OSC_FPGA_BASE_ADDR (of length OSC_FPGA_BASE_SIZE) to logical addresses. It
-//  * initializes the pointers g_osc_fpga_reg_mem, g_osc_fpga_cha_mem and
-//  * g_osc_fpga_chb_mem to point to FPGA OSC.
-//  * If function failes FPGA variables must not be used.
-//  *
-//  * @retval 0  Success
-//  * @retval -1 Failure, error is printed to standard error output.
-//  */
-// /**
-//  * @brief Cleans up FPGA OSC module internals.
-//  *
-//  * This function closes the memory file descriptor, unmap the FPGA memory space
-//  * and cleans also all other internal things from FPGA OSC module.
-//  * @retval 0 Sucess
-//  * @retval -1 Failure
-//  */
-// int osc_fpga_exit(void)
-// {
-//   //    if(g_osc_fpga_reg_mem)
-//     /* tell FPGA to stop packing slow ADC values into upper 16 bits of CHA, CHB */
-//       //      *(int *)(OSC_FPGA_SLOW_ADC_OFFSET + (char *) g_osc_fpga_reg_mem) = 0;
-//     return __osc_fpga_cleanup_mem();
-// }
-
-// /** @brief OSC FPGA ARM
-//  *
-//  * ARM internal oscilloscope FPGA state machine to start writting input buffers.
-
-//  * @retval 0 Always returns 0.
-//  */
-// int osc_fpga_arm_trigger(void)
-// {
-//   g_osc_fpga_reg_mem->digdar_extra_options = 21;  // 1: only buffer samples *after* being triggered; (no: 2: negate range of sample values); 4: double-width reads; 16: return sum
-//   g_osc_fpga_reg_mem->conf |= OSC_FPGA_CONF_ARM_BIT;
-//     return 0;
-// }
-
-// /** @brief Sets the trigger source in OSC FPGA register.
-//  *
-//  * Sets the trigger source in oscilloscope FPGA register.
-//  *
-//  * @param [in] trig_source Trigger source, as defined in FPGA register
-//  *                         description.
-//  */
-// int osc_fpga_set_trigger(uint32_t trig_source)
-// {
-//     g_osc_fpga_reg_mem->trig_source = trig_source;
-//     return 0;
-// }
-
-// /** @brief Sets the decimation rate in the OSC FPGA register.
-//  *
-//  * Sets the decimation rate in the oscilloscope FPGA register.
-//  *
-//  * @param [in] decim_factor decimation factor, which must be
-//  * one of the valid values for the FPGA build:
-//  * 1, 2, 8, 64, 1024, 8192, 65536
-//  */
-// int osc_fpga_set_decim(uint32_t decim_factor)
-// {
-//     g_osc_fpga_reg_mem->data_dec = decim_factor;
-//     return 0;
-// }
-
-// /** @brief Sets the trigger delay in OSC FPGA register.
-//  *
-//  * Sets the trigger delay in oscilloscope FPGA register.
-//  *
-//  * @param [in] trig_delay Trigger delay, as defined in FPGA register
-//  *                         description.
-//  *
-//  * @retval 0 Always returns 0.
-//  */
-// int osc_fpga_set_trigger_delay(uint32_t trig_delay)
-// {
-//     g_osc_fpga_reg_mem->trigger_delay = trig_delay;
-//     return 0;
-// }
-
-// /** @brief Checks if FPGA detected trigger.
-//  *
-//  * This function checks if trigger was detected by the FPGA.
-//  *
-//  * @retval 0 Trigger not detected.
-//  * @retval 1 Trigger detected.
-//  */
-// int osc_fpga_triggered(void)
-// {
-//     return ((g_osc_fpga_reg_mem->trig_source & OSC_FPGA_TRIG_SRC_MASK)==0);
-// }
-
-// /** @brief Returns memory pointers for both input signal buffers.
-//  *
-//  * This function returns pointers for input signal buffers for all 4 channels.
-//  *
-//  * @param [out] cha_signal Output pointer for Channel A buffer
-//  * @param [out] chb_signal Output pointer for Channel B buffer
-//  * @param [out] xcha_signal Output pointer for Slow Channel A buffer
-//  * @param [out] xchb_signal Output pointer for Slow Channel B buffer
-//  *
-//  * @retval 0 Always returns 0.
-//  */
-// int osc_fpga_get_sig_ptr(int **cha_signal, int **chb_signal, int **xcha_signal, int **xchb_signal)
-// {
-//     *cha_signal = (int *)g_osc_fpga_cha_mem;
-//     *chb_signal = (int *)g_osc_fpga_chb_mem;
-//     *xcha_signal = (int *)g_osc_fpga_xcha_mem;
-//     *xchb_signal = (int *)g_osc_fpga_xchb_mem;
-//     return 0;
-// }
-
-// /** @brief Returns values for current and trigger write FPGA pointers.
-//  *
-//  * This functions returns values for current and trigger write pointers. They
-//  * are an address of the input signal buffer and are the same for both channels.
-//  *
-//  * @param [out] wr_ptr_curr Current FPGA input buffer address.
-//  * @param [out] wr_ptr_trig Trigger FPGA input buffer address.
-//  *
-//  * @retval 0 Always returns 0.
-//   */
-// int osc_fpga_get_wr_ptr(int *wr_ptr_curr, int *wr_ptr_trig)
-// {
-//     if(wr_ptr_curr)
-//         *wr_ptr_curr = g_osc_fpga_reg_mem->wr_ptr_cur;
-//     if(wr_ptr_trig)
-//         *wr_ptr_trig = g_osc_fpga_reg_mem->wr_ptr_trigger;
-//     return 0;
-// }
 
 func Open() (fpga *OgdarFPGA) {
 	var err error
@@ -586,6 +414,7 @@ cleanup:
 	return nil
 }
 
+// free FPGA resources
 func (fpga *OgdarFPGA) Close() {
 	if fpga.memfile == nil {
 		return
@@ -600,4 +429,42 @@ func (fpga *OgdarFPGA) Close() {
 	fpga.VidBuf = nil
 	fpga.memfile.Close()
 	fpga.memfile = nil
+}
+
+// arm FPGA so it can start digitizing at next trigger
+func (fpga *OgdarFPGA) Arm() {
+	fpga.Osc.DigdarExtraOptions = 21 // 1: only buffer samples *after* being triggered; (no: 2: negate range of sample values); 4: double-width reads; 16: return sum if decim <= 4
+	fpga.Osc.Conf |=  OSC_FPGA_CONF_ARM_BIT;
+}
+
+// Select FPGA trigger source
+func (fpga *OgdarFPGA) SelectTrig(src uint32) {
+	fpga.Osc.TrigSource = src
+}
+
+// Set FPGA ADC decimation rate
+// decim must be a valid value for the FPGA build:
+//  1, 2, 3, 4, 8, 64, 1024, 8192, 65536
+func (fpga *OgdarFPGA) SetDecim(decim uint32) {
+	fpga.Osc.DataDec = decim
+}
+
+// Set the number of samples to acquire after a trigger.
+// Must be in the range 1...SAMPLES_PER_BUFF
+func (fpga *OgdarFPGA) SetNumSamp(n uint32) {
+	if n <= SAMPLES_PER_BUFF && n > 0 {
+		fpga.Osc.NumSamp = n
+	}
+}
+
+// Check whether FPGA has triggered (i.e. has digitized a pulse)
+func (fpga *OgdarFPGA) HasTriggered() bool {
+	return (fpga.Osc.TrigSource & OSC_FPGA_TRIG_SRC_MASK) == 0
+}
+
+// Return positions in sample buf of current write and last trigger.
+func (fpga *OgdarFPGA) Pos() (curr uint32, trig uint32) {
+	curr = fpga.Osc.WrPtrCur
+	trig = fpga.Osc.WrPtrTrigger
+	return
 }
