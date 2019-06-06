@@ -1,3 +1,45 @@
+// Interface to the redpitaya FPGA (digdar build).
+//
+// FPGA registers and BRAM are accessed via mmap()ing segments of
+// /dev/mem and coercing the returned []byte into pointers to structs,
+// using unsafe.Pointer()
+//
+// The redpitaya FPGA reads four radar channels:
+//
+// - video: strength of received (reflected) radar signal; 14 bit
+//   samples from ADC channel A sampling at 125 MHz, for a base range
+//   resolution of ~ 1.2 metres
+//
+// - trigger: strength of radar trigger line; 14 bit samples from ADC
+//   channel B sampling at 125 MHz.  In normal operation, when a pulse
+//   is detected on this channel, the FPGA begins filling a BRAM
+//   buffer with samples from the video channel, until the specified
+//   number of samples have been acquired.  Acquisition can be delayed
+//   by a specified amount after trigger pulse detection to allow for
+//   the delay between its detection by the digitizer and the actual
+//   release of a microwave pulse from the magnetron (e.g. due to
+//   cable length).
+//
+// - ACP: strength of radar azimuth count pulse; 12 bit samples from
+//   XADC channel A, sampling at 100 kHz.  Pulses from this line are
+//   counted, and the count is recorded with each digitized pulse
+//   to provide the relative antenna azimuth.  On the Furuno FR-
+//   series (1955, 1965, 8252) there are 450 ACP pulses per antenna
+//   rotation.
+//
+// - ARP: strength of radar azimuth return pulse; 12 bit samples from
+//   XADC channel B, sampling at 100 kHz.  A pulse should be detected
+//   on this line once per antenna rotation, and the antenna's true
+//   azimuth at that instant is constant across restarts of the radar.
+//   This allows conversion of the (relative) ACP count to an absolute
+//   (compass) azimuth.
+//
+// To help with calibration of thresholds for trigger, ACP and ARP
+// pulses, acquisition can alternatively be trigged by ADC or ARP
+// pulses, or immediately, and raw values from all four channels can
+// be recorded in separate buffers simultaenously.  These can be
+// displayed via the web scope interface.
+
 package fpga
 
 import (
@@ -6,39 +48,64 @@ import (
 	"unsafe"
 )
 
-// Definitions for the redpitaya FPGA (digdar build)
-// ChA (Vid) & ChB (Trig) data - 14 lowest bits valid; starts from 0x10000 and
-// 0x20000 and are each 16k samples long
-// XChA (ACP) & XChB (ARP) data - 12 lowest bits valid; starts from 0x30000 and
-// 0x40000 and are each 16k samples long
+const (
+	FAST_ADC_CLOCK          = 125E6                // Fast ADC sampling rate, Hz (Vid, Trig)
+	FAST_ADC_SAMPLE_PERIOD  = 1.0 / FAST_ADC_CLOCK // Fast ADC sample period
+	SLOW_ADC_CLOCK          = 1E5                  // Slow ADC sampling rate, Hz (ACP, ARP)
+	SLOW_ADC_SAMPLE_PERIOD  = 1.0 / SLOW_ADC_CLOCK // Slow ADC sample period
+	SAMPLES_PER_BUFF        = 16 * 1024            // Number of samples in a signal buffer
+	BUFF_SIZE_BYTES         = 4 * SAMPLES_PER_BUFF // Samples in buff are uint32, so 4 bytes big
+	OSC_FPGA_BASE_ADDR      = 0x40100000           // Starting address of FPGA registers handling Oscilloscope module
+	OSC_FPGA_BASE_SIZE      = 0x50000              // The size of FPGA registers handling Oscilloscope module
+	OSC_FPGA_SIG_LEN        = SAMPLES_PER_BUFF     // Size of data buffer into which input signal is captured , must be 2^n!
+	OSC_FPGA_CONF_ARM_BIT   = 1                    // Bit index in FPGA configuration register for arming the trigger
+	OSC_FPGA_CONF_RST_BIT   = 2                    // Bit index in FPGA configuration register for reseting write state machine
+	OSC_FPGA_POST_TRIG_ONLY = 4                    // Bit index in FPGA configuration register for only writing after a trigger is detected
+	OSC_FPGA_TRIG_SRC_MASK  = 0x0000000f           // Bit mask in the trigger_source register for depicting the trigger source type.
+	OSC_FPGA_CHA_THR_MASK   = 0x00003fff           // Bit mask in the cha_thr register for depicting trigger threshold on channel A.
+	OSC_FPGA_CHB_THR_MASK   = 0x00003fff           // Bit mask in the cha_thr register for depicting trigger threshold on channel B.
+	OSC_FPGA_TRIG_DLY_MASK  = 0xffffffff           // Bit mask in the trigger_delay register for depicting trigger delay.
+	OSC_FPGA_CHA_OFFSET     = 0x10000              // Offset to the memory buffer where signal on channel A is captured.
+	OSC_FPGA_CHB_OFFSET     = 0x20000              // Offset to the memory buffer where signal on channel B is captured.
+	OSC_FPGA_XCHA_OFFSET    = 0x30000              // Offset to the memory buffer where signal on slow channel A is captured.
+	OSC_FPGA_XCHB_OFFSET    = 0x40000              // Offset to the memory buffer where signal on slow channel B is captured.
+	DIGDAR_FPGA_BASE_ADDR   = 0x40600000           // Starting address of FPGA registers handling the Digdar module.
+	DIGDAR_FPGA_BASE_SIZE   = 0x0000B8             // The size of FPGA register block handling the Digdar module.
+	BPS_VID                 = 14                   // bits per sample, video channel sample (fast ADC A)
+	BPS_TRIG                = 14                   // bits per sample, trigger channel sample (fast ADC B))
+	BPS_ARP                 = 12                   // bits per sample, ARP channel sample (slow ADC A)
+	BPS_ACP                 = 12                   // bits per sample, ACP channel sample (slow ADC B)
+)
+
+// types of trigger
+type TrigType uint32
 
 const (
-	FAST_ADC_CLOCK          = 125E6       // Fast ADC sampling rate, Hz (Vid, Trig)
-	FAST_ADC_SAMPLE_PERIOD  = 1.0 / FAST_ADC_CLOCK // Fast ADC sample period
-	SLOW_ADC_CLOCK          = 1E5         // Slow ADC sampling rate, Hz (ACP, ARP)
-	SLOW_ADC_SAMPLE_PERIOD  = 1.0 / SLOW_ADC_CLOCK // Slow ADC sample period
-	SAMPLES_PER_BUFF        = 16 * 1024   // Number of samples in a signal buffer
-	BUFF_SIZE_BYTES         = 4 * SAMPLES_PER_BUFF // Samples in buff are uint32, so 4 bytes big
-	OSC_FPGA_BASE_ADDR      = 0x40100000  // Starting address of FPGA registers handling Oscilloscope module
-	OSC_FPGA_BASE_SIZE      = 0x50000     // The size of FPGA registers handling Oscilloscope module
-	OSC_FPGA_SIG_LEN        = SAMPLES_PER_BUFF // Size of data buffer into which input signal is captured , must be 2^n!
-	OSC_FPGA_CONF_ARM_BIT   = 1           // Bit index in FPGA configuration register for arming the trigger
-	OSC_FPGA_CONF_RST_BIT   = 2           // Bit index in FPGA configuration register for reseting write state machine
-	OSC_FPGA_POST_TRIG_ONLY = 4           // Bit index in FPGA configuration register for only writing after a trigger is detected
-	OSC_FPGA_TRIG_SRC_MASK  = 0x0000000f  // Bit mask in the trigger_source register for depicting the trigger source type.
-	OSC_FPGA_CHA_THR_MASK   = 0x00003fff  // Bit mask in the cha_thr register for depicting trigger threshold on channel A.
-	OSC_FPGA_CHB_THR_MASK   = 0x00003fff  // Bit mask in the cha_thr register for depicting trigger threshold on channel B.
-	OSC_FPGA_TRIG_DLY_MASK  = 0xffffffff  // Bit mask in the trigger_delay register for depicting trigger delay.
-	OSC_FPGA_CHA_OFFSET     = 0x10000     // Offset to the memory buffer where signal on channel A is captured.
-	OSC_FPGA_CHB_OFFSET     = 0x20000     // Offset to the memory buffer where signal on channel B is captured.
-	OSC_FPGA_XCHA_OFFSET    = 0x30000     // Offset to the memory buffer where signal on slow channel A is captured.
-	OSC_FPGA_XCHB_OFFSET    = 0x40000     // Offset to the memory buffer where signal on slow channel B is captured.
-	DIGDAR_FPGA_BASE_ADDR   = 0x40600000  // Starting address of FPGA registers handling the Digdar module.
-	DIGDAR_FPGA_BASE_SIZE   = 0x0000B8    // The size of FPGA register block handling the Digdar module.
-	BPS_VID         = 14 // bits per sample, video channel sample (fast ADC A)
-	BPS_TRIG        = 14 // bits per sample, trigger channel sample (fast ADC B))
-	BPS_ARP         = 12 // bits per sample, ARP channel sample (slow ADC A)
-	BPS_ACP         = 12 // bits per sample, ACP channel sample (slow ADC B)
+	_                      = iota
+	TRG_IMMEDIATE TrigType = iota // start acquisition without waiting
+	TRG_CHA_POS                   // rising edge on channel A - not used by ogdar
+	TRG_CHA_NEG                   // falling edge on channel A - not used by ogdar
+	TRG_CHB_POS                   // rising edge on channel B - not used by ogdar
+	TRG_CHB_NEG                   // falling edge on channel B - not used by ogdar
+	TRG_EXT_0                     // external trigger (from where?) - not used by ogdar
+	TRG_EXT_1                     // external trigger (from hwere?) - not used by ogdar
+	TRG_ASG_POS                   // signal generater rising edge - not used by ogdar
+	TRG_ASG_NEG                   // signal generater falling edge - not used by ogdar
+	TRG_TRIG                      // pulse on radar trigger channel
+	TRG_ACP                       // pulse on radar ACP channel
+	TRG_ARP                       // pulse on radar ARP channel
+)
+
+// bit flags for digdar; these are for the field OscFPGARegMem.DigdarOptions
+type DigdarOption uint32
+
+const (
+	DDOPT_NO_WRITE_BEFORE_TRIGGER DigdarOption = 1 << iota // original scope app writes constantly to BRAM; set this bit to 1
+								  // to write only after a trigger is detected
+	DDOPT_NEGATE_VIDEO // invert video sample values
+	DDOPT_32_BIT_READS // use 32-bit reads from FPGA BRAM to grab two 16-bit samples at a time
+	DDOPT_COUNT_MODE  // return ADC clock count instead of real video samples; for testing
+	DDOPT_USE_SUM // return sample sum, not average, for decimation rates <= 4
 )
 
 type OscFPGARegMem struct { // FPGA register structure for Oscilloscope core module.
@@ -83,8 +150,9 @@ type OscFPGARegMem struct { // FPGA register structure for Oscilloscope core mod
 
 	DataDec uint32 //  Data decimation
 	// bits [16: 0] - decimation factor, legal values:
-	//   1, 2, 8, 64, 1024, 8192 65536
+	//   1, 2, 3, 4, 8, 64, 1024, 8192 65536
 	//   If other values are written data is undefined
+	// FIXME: doesn't the digdar FPGA build allow arbitrary decimation values?
 	// bits [31:17] - reserved
 
 	WrPtrCur uint32 // where machine stopped writing after trigger
@@ -95,62 +163,51 @@ type OscFPGARegMem struct { // FPGA register structure for Oscilloscope core mod
 	// bits [13: 0] - pointer
 	// bits [31:14] - reserved
 
-	ChaHystersis uint32 //  ChA & ChB hysteresis - both of the format:
+	UnusedChaHystersis uint32 //  ChA & ChB hysteresis - both of the format:
 	// bits [13: 0] - hysteresis threshold
 	// bits [31:14] - reserved
 
-	ChbHystersis uint32
+	UnusedChbHystersis uint32
 
-	Other uint32 // @brief
+	UnusedOther uint32 // @brief
 	// bits [0] - enable signal average at decimation
 	// bits [31:1] - reserved
 
 	Reserved uint32
 
-	ChaFiltAa uint32 // ChA Equalization filter
+	UnusedChaFiltAa uint32 // ChA Equalization filter
 	// bits [17:0] - AA coefficient (pole)
 	// bits [31:18] - reserved
 
-	ChaFiltBb uint32 // ChA Equalization filter
+	UnusedChaFiltBb uint32 // ChA Equalization filter
 	// bits [24:0] - BB coefficient (zero)
 	// bits [31:25] - reserved
 
-	ChaFiltKk uint32 // ChA Equalization filter
+	UnusedChaFiltKk uint32 // ChA Equalization filter
 	// bits [24:0] - KK coefficient (gain)
 	// bits [31:25] - reserved
 
-	ChaFiltPp uint32 // ChA Equalization filter
+	UnusedChaFiltPp uint32 // ChA Equalization filter
 	// bits [24:0] - PP coefficient (pole)
 	// bits [31:25] - reserved
 
-	ChbFiltAa uint32 // ChB Equalization filter
+	UnusedChbFiltAa uint32 // ChB Equalization filter
 	// bits [17:0] - AA coefficient (pole)
 	// bits [31:18] - reserved
 
-	ChbFiltBb uint32 // ChB Equalization filter
+	UnusedChbFiltBb uint32 // ChB Equalization filter
 	// bits [24:0] - BB coefficient (zero)
 	// bits [31:25] - reserved
 
-	ChbFiltKk uint32 // ChB Equalization filter
+	UnusedChbFiltKk uint32 // ChB Equalization filter
 	// bits [24:0] - KK coefficient (gain)
 	// bits [31:25] - reserved
 
-	ChbFiltPp uint32 // ChB Equalization filter
+	UnusedChbFiltPp uint32 // ChB Equalization filter
 	// bits [24:0] - PP coefficient (pole)
 	// bits [31:25] - reserved
 
-	DigdarExtraOptions uint32 // Extra options:
-	// bit [0] - if 1, only record samples after trigger detected
-	//            this serves to protect a digitized pulse, so that
-	//            we can be reading it from BRAM into DRAM while the FPGA
-	//            waits for and digitizes another pulse. (Provided the number
-	//            of samples to be digitized is <= 1/2 the buffer size of 16 k samples)
-	// bit [1] - if 1, ADC A negates values and returns in 2s complement; otherwise,
-	//           values are returned as-is.
-	// bit [2] - use 32-bit reads from buffers
-	// bit [3] - use counting mode, not real ADC samples; for debugging only
-	// bit [4] - return sample sum, not average, for decimation rates <= 4 (returns as 16-bit)
-	// bits [31:2] - reserved
+	DigdarOptions DigdarOption // digdar-specific options (see type DigdarOption)
 
 }
 
@@ -328,49 +385,21 @@ type OgdarFPGARegMem struct {
 }
 
 type OgdarFPGA struct {
-	Osc *OscFPGARegMem  // Oscilloscope FPGA registers
-	Ogd *OgdarFPGARegMem // Ogdar FPGA registers
-	vidSlice [] byte // video buffer as a byte slice; VidBuf points to vidSlice[0]
-	trigSlice [] byte // trigger buffer as a byte slice
-	acpSlice [] byte // ACP buffer as a byte slice
-	arpSlice [] byte // ARP buffer as a byte slice
-	VidBuf *[SAMPLES_PER_BUFF] uint32 // video sample buffer; these are the radar "data"
-	TrigBuf *[SAMPLES_PER_BUFF] uint32 // trigger sample buffer; used when configuring digitizer
-	ARPBuf *[SAMPLES_PER_BUFF] uint32 // ARP sample buffer; used when configuring digitizer
-	ACPBuf *[SAMPLES_PER_BUFF] uint32 // ACP sample buffer; used when configuring digitizer
-	memfile *os.File // pointer to open file /dev/mem for mmaping registers
+	Osc       *OscFPGARegMem            // Oscilloscope FPGA registers
+	Ogd       *OgdarFPGARegMem          // Ogdar FPGA registers
+	vidSlice  []byte                    // video buffer as a byte slice; VidBuf points to vidSlice[0]
+	trigSlice []byte                    // trigger buffer as a byte slice
+	acpSlice  []byte                    // ACP buffer as a byte slice
+	arpSlice  []byte                    // ARP buffer as a byte slice
+	VidBuf    *[SAMPLES_PER_BUFF]uint32 // video sample buffer; these are the radar "data"
+	TrigBuf   *[SAMPLES_PER_BUFF]uint32 // trigger sample buffer; used when configuring digitizer
+	ARPBuf    *[SAMPLES_PER_BUFF]uint32 // ARP sample buffer; used when configuring digitizer
+	ACPBuf    *[SAMPLES_PER_BUFF]uint32 // ACP sample buffer; used when configuring digitizer
+	memfile   *os.File                  // pointer to open file /dev/mem for mmaping registers
 
 }
 
-// /**
-//  * GENERAL DESCRIPTION:
-//  *
-//  * This module initializes and provides for other SW modules the access to the
-//  * FPGA OSC module. The oscilloscope memory space is divided to three parts:
-//  *   - registers (control and status)
-//  *   - input signal buffer (Channel A)
-//  *   - input signal buffer (Channel B)
-//  *
-//  * This module maps physical address of the oscilloscope core to the logical
-//  * address, which can be used in the GNU/Linux user-space. To achieve this,
-//  * OSC_FPGA_BASE_ADDR from CPU memory space is translated automatically to
-//  * logical address with the function mmap(). After all the initialization is done,
-//  * other modules can use this module to controll oscilloscope FPGA core. Before
-//  * any functions or functionality from this module can be used it needs to be
-//  * initialized with osc_fpga_init() function. When this module is no longer
-//  * needed osc_fpga_exit() must be called.
-//  *
-//  * FPGA oscilloscope state machine in various modes. Basic principle is that
-//  * SW sets the machine, 'arm' the writting machine (FPGA writes from ADC to
-//  * input buffer memory) and then set the triggers. FPGA machine is continue
-//  * writting to the buffers until the trigger is detected plus the amount set
-//  * in trigger delay register. For more detauled description see the FPGA OSC
-//  * registers description.
-//  *
-//  * Nice example how to use this module can be seen in worker.c module.
-//  */
-
-
+// Open the FPGA and allocate pointers to memory-mapped registers and buffers
 func Open() (fpga *OgdarFPGA) {
 	var err error
 	fpga = new(OgdarFPGA)
@@ -388,22 +417,22 @@ func Open() (fpga *OgdarFPGA) {
 		goto cleanup
 	}
 	fpga.Osc = (*OscFPGARegMem)(unsafe.Pointer(&mmap[0]))
-	fpga.vidSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR + OSC_FPGA_CHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	fpga.vidSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR+OSC_FPGA_CHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
 	}
 	fpga.VidBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.vidSlice[0]))
-	fpga.trigSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR + OSC_FPGA_CHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	fpga.trigSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR+OSC_FPGA_CHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
 	}
 	fpga.TrigBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.trigSlice[0]))
-	fpga.acpSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR + OSC_FPGA_XCHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	fpga.acpSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR+OSC_FPGA_XCHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
 	}
 	fpga.ACPBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.acpSlice[0]))
-	fpga.arpSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR + OSC_FPGA_XCHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	fpga.arpSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR+OSC_FPGA_XCHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
 	}
@@ -433,20 +462,27 @@ func (fpga *OgdarFPGA) Close() {
 
 // arm FPGA so it can start digitizing at next trigger
 func (fpga *OgdarFPGA) Arm() {
-	fpga.Osc.DigdarExtraOptions = 21 // 1: only buffer samples *after* being triggered; (no: 2: negate range of sample values); 4: double-width reads; 16: return sum if decim <= 4
-	fpga.Osc.Conf |=  OSC_FPGA_CONF_ARM_BIT;
+	fpga.Osc.DigdarOptions = 21 // 1: only buffer samples *after* being triggered; (no: 2: negate range of sample values); 4: double-width reads; 16: return sum if decim <= 4
+	fpga.Osc.Conf |= OSC_FPGA_CONF_ARM_BIT
 }
 
 // Select FPGA trigger source
-func (fpga *OgdarFPGA) SelectTrig(src uint32) {
-	fpga.Osc.TrigSource = src
+func (fpga *OgdarFPGA) SelectTrig(t TrigType) {
+	fpga.Osc.TrigSource = uint32(t)
 }
 
 // Set FPGA ADC decimation rate
 // decim must be a valid value for the FPGA build:
 //  1, 2, 3, 4, 8, 64, 1024, 8192, 65536
-func (fpga *OgdarFPGA) SetDecim(decim uint32) {
-	fpga.Osc.DataDec = decim
+// returns true on success; false otherwise
+func (fpga *OgdarFPGA) SetDecim(decim uint32) bool {
+	switch decim {
+	case 1, 2, 3, 4, 8, 64, 1024, 8192, 65536:
+		fpga.Osc.DataDec = decim
+		return true
+	default:
+		return false
+	}
 }
 
 // Set the number of samples to acquire after a trigger.
@@ -462,8 +498,8 @@ func (fpga *OgdarFPGA) HasTriggered() bool {
 	return (fpga.Osc.TrigSource & OSC_FPGA_TRIG_SRC_MASK) == 0
 }
 
-// Return positions in sample buf of current write and last trigger.
 func (fpga *OgdarFPGA) Pos() (curr uint32, trig uint32) {
+	// Return positions in sample buf of current write and last trigger.
 	curr = fpga.Osc.WrPtrCur
 	trig = fpga.Osc.WrPtrTrigger
 	return
