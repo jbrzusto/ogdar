@@ -39,7 +39,6 @@
 // pulses, or immediately, and raw values from all four channels can
 // be recorded in separate buffers simultaenously.  These can be
 // displayed via the web scope interface.
-
 package fpga
 
 import (
@@ -487,10 +486,13 @@ func (fpga *OgdarFPGA) SetDecim(decim uint32) bool {
 
 // Set the number of samples to acquire after a trigger.
 // Must be in the range 1...SAMPLES_PER_BUFF
-func (fpga *OgdarFPGA) SetNumSamp(n uint32) {
+// returns true on success; false otherwise
+func (fpga *OgdarFPGA) SetNumSamp(n uint32) bool {
 	if n <= SAMPLES_PER_BUFF && n > 0 {
 		fpga.Osc.NumSamp = n
+		return true
 	}
+	return false
 }
 
 // Check whether FPGA has triggered (i.e. has digitized a pulse)
@@ -498,8 +500,8 @@ func (fpga *OgdarFPGA) HasTriggered() bool {
 	return (fpga.Osc.TrigSource & OSC_FPGA_TRIG_SRC_MASK) == 0
 }
 
+// Return positions in sample buf of current write and last trigger.
 func (fpga *OgdarFPGA) Pos() (curr uint32, trig uint32) {
-	// Return positions in sample buf of current write and last trigger.
 	curr = fpga.Osc.WrPtrCur
 	trig = fpga.Osc.WrPtrTrigger
 	return
