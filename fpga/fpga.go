@@ -212,91 +212,71 @@ type OscFPGARegMem struct {
 // to DIGDAR_FPGA_BASE_ADDR through /dev/mem.
 type OgdarFPGARegMem struct {
 
-	// --------------- TRIG -----------------
-
+	// TRIG
 	TrigThreshExcite uint32 //  trig_thresh_excite: trigger excitation threshold Trigger is raised for one FPGA clock after trigger
 	//  channel ADC value meets or exceeds this value (in direction away from trig_thresh_relax).  bits [13:
 	//  0] - threshold, signed bit [31:14] - reserved
-
 	TrigThreshRelax uint32 //  trig_thresh_relax: trigger relaxation threshold After a trigger has been raised, the trigger channel
 	//  ADC value must meet or exceeds this value (in direction away from trig_thresh_excite) before a
 	//  trigger will be raised again.  (Serves to debounce signal in schmitt-trigger style).  bits [13: 0] -
 	//  threshold, signed bit [31:14] - reserved
-
 	TrigDelay uint32 //  trig_delay: (traditional) trigger delay.  How long to wait after trigger is raised before starting to
 	//  capture samples from Video channel.  Note: this usage of 'delay' is traditional for radar digitizing but
 	//  differs from the red pitaya scope usage, which means "number of decimated ADC samples to acquire after
 	//  trigger is raised" bits [31: 0] - unsigned wait time, in ADC clocks.
-
 	TrigLatency uint32 //  trig_latency: how long to wait after trigger relaxation before allowing next excitation.  To further
 	//  debounce the trigger signal, we can specify a minimum wait time between relaxation and excitation.  bits
 	//  [31: 0] - unsigned latency time, in ADC clocks.
-
 	TrigCount uint32 //  trig_count: number of trigger pulses detected since last reset
 	// bits [31: 0] - unsigned count of trigger pulses detected
-
 	TrigClock_low uint32 //  trig_clock_low: ADC clock count at last trigger pulse
 	// bits [31: 0] - unsigned (low 32 bits) of ADC clock count
-
 	TrigClockHigh uint32 //  trig_clock_high: ADC clock count at last trigger pulse
 	// bits [31: 0] - unsigned (high 32 bits) of ADC clock count
-
 	TrigPrevClockLow uint32 //  trig_prev_clock_low: ADC clock count at previous trigger pulse,
 	//          so we can calculate trigger rate, regardless of capture rate
 	// bits [31: 0] - unsigned (low 32 bits) of ADC clock count
-
 	TrigPrevClockHigh uint32 //  trig_prev_clock_high: ADC clock count at previous trigger pulse
 	// bits [31: 0] - unsigned (high 32 bits) of ADC clock count
 
-	// --------------- ACP -----------------
-
+	// ACP
+        //
 	//  acp_thresh_excite: acp excitation threshold
 	//          the acp pulse is detected and counted when the ACP slow ADC
 	//          channel meets or exceeds this value in the direction away
 	//          from acp_thresh_relax
 	// bits [11: 0] - threshold, signed
 	// bit  [31:14] - reserved
-
 	ACPThreshExcite uint32
-
 	ACPThreshRelax uint32 //  acp_thresh_relax: acp relaxation threshold After an acp has been detected, the acp channel ADC value
 	//  must meet or exceeds this value (in direction away from acp_thresh_excite) before a acp will be
 	//  detected again.  (Serves to debounce signal in schmitt-acp style).  bits [11: 0] - threshold, signed
 	//  bit [31:14] - reserved
-
 	ACPLatency uint32 //  acp_latency: how long to wait after acp relaxation before
 	//          allowing next excitation.
 	//          To further debounce the acp signal, we can specify a minimum
 	//          wait time between relaxation and excitation.
 	// bits [31: 0] - unsigned latency time, in ADC clocks.
-
 	ACPCount uint32 //  acp_count: number of acp pulses detected since last reset
 	// bits [31: 0] - unsigned count of acp pulses detected
-
 	ACPClockLow uint32 //  acp_clock_low: ADC clock count at last acp pulse
 	// bits [31: 0] - unsigned (low 32 bits) of ADC clock count
-
 	ACPClockHigh uint32 //  acp_clock_high: ADC clock count at last acp pulse
 	// bits [31: 0] - unsigned (high 32 bits) of ADC clock count
-
 	ACPPrevClockLow uint32 //  acp_prev_clock_low: ADC clock count at previous acp pulse,
 	//          so we can calculate acp rate, regardless of capture rate
 	// bits [31: 0] - unsigned (low 32 bits) of ADC clock count
-
 	ACPPrevClockHigh uint32 //  acp_prev_clock_high: ADC clock count at previous acp pulse
 	// bits [31: 0] - unsigned (high 32 bits) of ADC clock count
 
-	// --------------- ARP -----------------
-
+	// ARP
 	//  arp_thresh_excite: arp excitation threshold
 	//          the arp pulse is detected and counted when the ARP slow ADC
 	//          channel meets or exceeds this value in the direction away
 	//          from arp_thresh_relax
 	// bits [11: 0] - threshold, signed
 	// bit  [31:14] - reserved
-
 	ARPThreshExcite uint32
-
 	ARPThreshRelax uint32 //  arp_thresh_relax: arp relaxation threshold
 	//          After an arp has been detected, the arp channel ADC value
 	//          must meet or exceeds this value (in direction away
@@ -304,33 +284,26 @@ type OgdarFPGARegMem struct {
 	//          (Serves to debounce signal in schmitt-arp style).
 	// bits [11: 0] - threshold, signed
 	// bit  [31:14] - reserved
-
 	ARPLatency uint32 //  arp_latency: how long to wait after arp relaxation before
 	//          allowing next excitation.
 	//          To further debounce the arp signal, we can specify a minimum
 	//          wait time between relaxation and excitation.
 	// bits [31: 0] - unsigned latency time, in ADC clocks.
-
 	ARPCount uint32 //  arp_count: number of arp pulses detected since last reset
 	// bits [31: 0] - unsigned count of arp pulses detected
-
 	ARPClockLow uint32 //  arp_clock_low: ADC clock count at last arp pulse
 	// bits [31: 0] - unsigned (low 32 bits) of ADC clock count
-
 	ARPClockHigh uint32 //  arp_clock_high: ADC clock count at last arp pulse
 	// bits [31: 0] - unsigned (high 32 bits) of ADC clock count
-
 	ARPPrevClockLow uint32 //  arp_prev_clock_low: ADC clock count at previous arp pulse,
 	//          so we can calculate arp rate, regardless of capture rate
 	// bits [31: 0] - unsigned (low 32 bits) of ADC clock count
-
 	ARPPrevClockHigh uint32 //  arp_prev_clock_high: ADC clock count at previous arp pulse
 	// bits [31: 0] - unsigned (high 32 bits) of ADC clock count
-
 	ACPPerARP uint32 //  acp_per_arp: count of ACP pulses between two most recent ARP pulses
 	// bits [31: 0] - unsigned count of ACP pulses
 
-	// --------------------- SAVED COPIES ----------------------------------------
+	// Saved Copies
 	// For these metadata, we want to record the values at the time of the
 	// most recently *captured* pulse.  So if the capture thread is not keeping up
 	// with the radar, we still have correct values of these metadata for each
@@ -338,7 +311,6 @@ type OgdarFPGARegMem struct {
 	// The FPGA knows at trigger detection time whether or not
 	// the pulse will be captured, and if so, copies the live metadata values to
 	// these saved locations.
-
 	SavedTrigCount         uint32 //  saved_trig_count:  value at start of most recently captured pulse
 	SavedTrigClockLow      uint32 //  saved_trig_clock_low:  value at start of most recently captured pulse
 	SavedTrigClockHigh     uint32 //  saved_trig_clock_high:  value at start of most recently captured pulse
@@ -356,6 +328,7 @@ type OgdarFPGARegMem struct {
 	SavedARPPrevClockHigh  uint32 //  saved_arp_prev_clock_high:  value at start of most recently captured pulse
 	SavedACPPerARP         uint32 //  saved_acp_per_arp:  value at start of most recently captured pulse
 
+	// Time and Azimuth Counters
 	Clocks         uint64 //  clocks: 64-bit count of ADC clock ticks since reset
 	ACPRaw         uint32 //  most recent slow ADC value from ACP
 	ARPRaw         uint32 //  most recent slow ADC value from ARP
