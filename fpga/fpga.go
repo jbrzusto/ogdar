@@ -240,7 +240,7 @@ type OgdarFPGARegMem struct {
 	// bits [31: 0] - unsigned (high 32 bits) of ADC clock count
 
 	// ACP
-        //
+	//
 	//  acp_thresh_excite: acp excitation threshold
 	//          the acp pulse is detected and counted when the ACP slow ADC
 	//          channel meets or exceeds this value in the direction away
@@ -248,7 +248,7 @@ type OgdarFPGARegMem struct {
 	// bits [11: 0] - threshold, signed
 	// bit  [31:14] - reserved
 	ACPThreshExcite uint32
-	ACPThreshRelax uint32 //  acp_thresh_relax: acp relaxation threshold After an acp has been detected, the acp channel ADC value
+	ACPThreshRelax  uint32 //  acp_thresh_relax: acp relaxation threshold After an acp has been detected, the acp channel ADC value
 	//  must meet or exceeds this value (in direction away from acp_thresh_excite) before a acp will be
 	//  detected again.  (Serves to debounce signal in schmitt-acp style).  bits [11: 0] - threshold, signed
 	//  bit [31:14] - reserved
@@ -277,7 +277,7 @@ type OgdarFPGARegMem struct {
 	// bits [11: 0] - threshold, signed
 	// bit  [31:14] - reserved
 	ARPThreshExcite uint32
-	ARPThreshRelax uint32 //  arp_thresh_relax: arp relaxation threshold
+	ARPThreshRelax  uint32 //  arp_thresh_relax: arp relaxation threshold
 	//          After an arp has been detected, the arp channel ADC value
 	//          must meet or exceeds this value (in direction away
 	//          from arp_thresh_excite) before a arp will be detected again.
