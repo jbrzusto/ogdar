@@ -300,8 +300,8 @@ type OgdarFPGARegMem struct {
 	// bits [31: 0] - unsigned (low 32 bits) of ADC clock count
 	ARPPrevClockHigh uint32 //  arp_prev_clock_high: ADC clock count at previous arp pulse
 	// bits [31: 0] - unsigned (high 32 bits) of ADC clock count
-	ACPPerARP uint32 //  acp_per_arp: count of ACP pulses between two most recent ARP pulses
-	// bits [31: 0] - unsigned count of ACP pulses
+	ACPPerARP uint32 /*  acp_per_arp: count of ACP pulses between two most recent ARP pulses
+	bits [31: 0] - unsigned count of ACP pulses */
 
 	// Saved Copies
 	// For these metadata, we want to record the values at the time of the
