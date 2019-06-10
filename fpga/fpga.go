@@ -105,9 +105,9 @@ const (
 	DDOPT_USE_SUM      // return sample sum, not average, for decimation rates <= 4
 )
 
-// OscFPGARegMem is a direct image of physical FPGA memory. It provides direct read/write access to FPGA registers when it is mmapped to
+// OscRegs is a direct image of physical FPGA memory. It provides direct read/write access to FPGA registers when it is mmapped to
 // OSC_FPGA_BASE_ADDR through /dev/mem.
-type OscFPGARegMem struct {
+type OscRegs struct {
 
 	// This struct is a
 
@@ -208,9 +208,9 @@ type OscFPGARegMem struct {
 
 }
 
-// OgdarFPGARegMem is a direct image of physical FPGA memory. It provides direct read/write access to FPGA registers when it is mmapped
+// OgdarRegs is a direct image of physical FPGA memory. It provides direct read/write access to FPGA registers when it is mmapped
 // to DIGDAR_FPGA_BASE_ADDR through /dev/mem.
-type OgdarFPGARegMem struct {
+type OgdarRegs struct {
 
 	// TRIG
 	TrigThreshExcite uint32 //  trig_thresh_excite: trigger excitation threshold Trigger is raised for one FPGA clock after trigger
@@ -340,17 +340,17 @@ type OgdarFPGARegMem struct {
 
 // OgdarFPGA represents the redpitaya FPGA object.
 type OgdarFPGA struct {
-	Osc       *OscFPGARegMem            // Oscilloscope FPGA registers
-	Ogd       *OgdarFPGARegMem          // Ogdar FPGA registers
-	vidSlice  []byte                    // video buffer as a byte slice; VidBuf points to vidSlice[0]
-	trigSlice []byte                    // trigger buffer as a byte slice
-	acpSlice  []byte                    // ACP buffer as a byte slice
-	arpSlice  []byte                    // ARP buffer as a byte slice
-	VidBuf    *[SAMPLES_PER_BUFF]uint32 // video sample buffer; these are the radar "data"
-	TrigBuf   *[SAMPLES_PER_BUFF]uint32 // trigger sample buffer; used when configuring digitizer
-	ARPBuf    *[SAMPLES_PER_BUFF]uint32 // ARP sample buffer; used when configuring digitizer
-	ACPBuf    *[SAMPLES_PER_BUFF]uint32 // ACP sample buffer; used when configuring digitizer
-	memfile   *os.File                  // pointer to open file /dev/mem for mmaping registers
+	*OscRegs                             // Oscilloscope FPGA registers
+	*OgdarRegs                           // Ogdar FPGA registers
+	vidSlice   []byte                    // video buffer as a byte slice; VidBuf points to vidSlice[0]
+	trigSlice  []byte                    // trigger buffer as a byte slice
+	acpSlice   []byte                    // ACP buffer as a byte slice
+	arpSlice   []byte                    // ARP buffer as a byte slice
+	VidBuf     *[SAMPLES_PER_BUFF]uint32 // video sample buffer; these are the radar "data"
+	TrigBuf    *[SAMPLES_PER_BUFF]uint32 // trigger sample buffer; used when configuring digitizer
+	ARPBuf     *[SAMPLES_PER_BUFF]uint32 // ARP sample buffer; used when configuring digitizer
+	ACPBuf     *[SAMPLES_PER_BUFF]uint32 // ACP sample buffer; used when configuring digitizer
+	memfile    *os.File                  // pointer to open file /dev/mem for mmaping registers
 
 }
 
@@ -366,12 +366,12 @@ func Open() (fpga *OgdarFPGA) {
 	if err != nil {
 		goto cleanup
 	}
-	fpga.Ogd = (*OgdarFPGARegMem)(unsafe.Pointer(&mmap[0]))
+	fpga.OgdarRegs = (*OgdarRegs)(unsafe.Pointer(&mmap[0]))
 	mmap, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR, OSC_FPGA_BASE_SIZE, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
 	}
-	fpga.Osc = (*OscFPGARegMem)(unsafe.Pointer(&mmap[0]))
+	fpga.OscRegs = (*OscRegs)(unsafe.Pointer(&mmap[0]))
 	fpga.vidSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), OSC_FPGA_BASE_ADDR+OSC_FPGA_CHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
@@ -417,13 +417,13 @@ func (fpga *OgdarFPGA) Close() {
 
 // Arm tells the FPGA to start digitizing at the next trigger detection.
 func (fpga *OgdarFPGA) Arm() {
-	fpga.Osc.DigdarOptions = 21 // 1: only buffer samples *after* being triggered; (no: 2: negate range of sample values); 4: double-width reads; 16: return sum if decim <= 4
-	fpga.Osc.Conf |= OSC_FPGA_CONF_ARM_BIT
+	fpga.DigdarOptions = 21 // 1: only buffer samples *after* being triggered; (no: 2: negate range of sample values); 4: double-width reads; 16: return sum if decim <= 4
+	fpga.Conf |= OSC_FPGA_CONF_ARM_BIT
 }
 
 // SelectTrig chooses the source used to trigger data acquisition.
 func (fpga *OgdarFPGA) SelectTrig(t TrigType) {
-	fpga.Osc.TrigSource = uint32(t)
+	fpga.TrigSource = uint32(t)
 }
 
 // SetDecim selects the FPGA ADC decimation rate.
@@ -433,7 +433,7 @@ func (fpga *OgdarFPGA) SelectTrig(t TrigType) {
 func (fpga *OgdarFPGA) SetDecim(decim uint32) bool {
 	switch decim {
 	case 1, 2, 3, 4, 8, 64, 1024, 8192, 65536:
-		fpga.Osc.DataDec = decim
+		fpga.DataDec = decim
 		return true
 	default:
 		return false
@@ -445,7 +445,7 @@ func (fpga *OgdarFPGA) SetDecim(decim uint32) bool {
 // returns true on success; false otherwise
 func (fpga *OgdarFPGA) SetNumSamp(n uint32) bool {
 	if n <= SAMPLES_PER_BUFF && n > 0 {
-		fpga.Osc.NumSamp = n
+		fpga.NumSamp = n
 		return true
 	}
 	return false
@@ -454,12 +454,12 @@ func (fpga *OgdarFPGA) SetNumSamp(n uint32) bool {
 // HasTriggered checks whether the FPGA has received a trigger and completed sample acquisition
 // since the last call to Arm().
 func (fpga *OgdarFPGA) HasTriggered() bool {
-	return (fpga.Osc.TrigSource & OSC_FPGA_TRIG_SRC_MASK) == 0
+	return (fpga.TrigSource & OSC_FPGA_TRIG_SRC_MASK) == 0
 }
 
 // Pos returns the slots in sample buf of the current write position and of the last trigger.
 func (fpga *OgdarFPGA) Pos() (curr uint32, trig uint32) {
-	curr = fpga.Osc.WrPtrCur
-	trig = fpga.Osc.WrPtrTrigger
+	curr = fpga.WrPtrCur
+	trig = fpga.WrPtrTrigger
 	return
 }
