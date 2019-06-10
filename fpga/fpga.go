@@ -7,32 +7,30 @@
 // The redpitaya FPGA reads four radar channels:
 //
 // - video: strength of received (reflected) radar signal; 14 bit
-//   samples from ADC channel A sampling at 125 MHz, for a base range
-//   resolution of ~ 1.2 metres
+// samples from ADC channel A sampling at 125 MHz, for a base range
+// resolution of ~ 1.2 metres
 //
 // - trigger: strength of radar trigger line; 14 bit samples from ADC
-//   channel B sampling at 125 MHz.  In normal operation, when a pulse
-//   is detected on this channel, the FPGA begins filling a BRAM
-//   buffer with samples from the video channel, until the specified
-//   number of samples have been acquired.  Acquisition can be delayed
-//   by a specified amount after trigger pulse detection to allow for
-//   the delay between its detection by the digitizer and the actual
-//   release of a microwave pulse from the magnetron (e.g. due to
-//   cable length).
+// channel B sampling at 125 MHz.  In normal operation, when a pulse
+// is detected on this channel, the FPGA begins filling a BRAM buffer
+// with samples from the video channel, until the specified number of
+// samples have been acquired.  Acquisition can be delayed by a
+// specified amount after trigger pulse detection to allow for the
+// delay between its detection by the digitizer and the actual release
+// of a microwave pulse from the magnetron (e.g. due to cable length).
 //
 // - ACP: strength of radar azimuth count pulse; 12 bit samples from
-//   XADC channel A, sampling at 100 kHz.  Pulses from this line are
-//   counted, and the count is recorded with each digitized pulse
-//   to provide the relative antenna azimuth.  On the Furuno FR-
-//   series (1955, 1965, 8252) there are 450 ACP pulses per antenna
-//   rotation.
+// XADC channel A, sampling at 100 kHz.  Pulses from this line are
+// counted, and the count is recorded with each digitized pulse to
+// provide the relative antenna azimuth.  On the Furuno FR- series
+// (1955, 1965, 8252) there are 450 ACP pulses per antenna rotation.
 //
 // - ARP: strength of radar azimuth return pulse; 12 bit samples from
-//   XADC channel B, sampling at 100 kHz.  A pulse should be detected
-//   on this line once per antenna rotation, and the antenna's true
-//   azimuth at that instant is constant across restarts of the radar.
-//   This allows conversion of the (relative) ACP count to an absolute
-//   (compass) azimuth.
+// XADC channel B, sampling at 100 kHz.  A pulse should be detected on
+// this line once per antenna rotation, and the antenna's true azimuth
+// at that instant is constant across restarts of the radar.  This
+// allows conversion of the (relative) ACP count to an absolute
+// (compass) azimuth.
 //
 // To help with calibration of thresholds for trigger, ACP and ARP
 // pulses, acquisition can alternatively be trigged by ADC or ARP
@@ -76,7 +74,7 @@ const (
 	BPS_ACP                 = 12                   // bits per sample, ACP channel sample (slow ADC B)
 )
 
-// types of trigger
+// TrigType enumerates sources for a trigger
 type TrigType uint32
 
 const (
@@ -95,23 +93,23 @@ const (
 	TRG_ARP                       // pulse on radar ARP channel
 )
 
-// bit flags for digdar; these are for the field OscFPGARegMem.DigdarOptions
+// DigdarOption is a set of bit flags for the field OscFPGARegMem.DigdarOptions
 type DigdarOption uint32
 
 const (
 	DDOPT_NO_WRITE_BEFORE_TRIGGER DigdarOption = 1 << iota // original scope app writes constantly to BRAM; set this bit to 1
-								  // to write only after a trigger is detected
+	// to write only after a trigger is detected
 	DDOPT_NEGATE_VIDEO // invert video sample values
 	DDOPT_32_BIT_READS // use 32-bit reads from FPGA BRAM to grab two 16-bit samples at a time
-	DDOPT_COUNT_MODE  // return ADC clock count instead of real video samples; for testing
-	DDOPT_USE_SUM // return sample sum, not average, for decimation rates <= 4
+	DDOPT_COUNT_MODE   // return ADC clock count instead of real video samples; for testing
+	DDOPT_USE_SUM      // return sample sum, not average, for decimation rates <= 4
 )
 
-type OscFPGARegMem struct { // FPGA register structure for Oscilloscope core module.
+// OscFPGARegMem is a direct image of physical FPGA memory. It provides direct read/write access to FPGA registers when it is mmapped to
+// OSC_FPGA_BASE_ADDR through /dev/mem.
+type OscFPGARegMem struct {
 
-	// This struct is a direct image of physical FPGA memory. It
-	// provides direct read/write access to FPGA registers when it
-	// is mmapped to OSC_FPGA_BASE_ADDR through /dev/mem.
+	// This struct is a
 
 	Conf uint32 //  Configuration:
 	// bit     [0] - arm_trigger
@@ -210,42 +208,29 @@ type OscFPGARegMem struct { // FPGA register structure for Oscilloscope core mod
 
 }
 
+// OgdarFPGARegMem is a direct image of physical FPGA memory. It provides direct read/write access to FPGA registers when it is mmapped
+// to DIGDAR_FPGA_BASE_ADDR through /dev/mem.
 type OgdarFPGARegMem struct {
-
-	// This struct is a direct image of physical FPGA memory. It
-	// provides direct read/write access to FPGA registers when it
-	// is mmapped to DIGDAR_FPGA_BASE_ADDR through /dev/mem.
 
 	// --------------- TRIG -----------------
 
-	TrigThreshExcite uint32 //  trig_thresh_excite: trigger excitation threshold
-	//          Trigger is raised for one FPGA clock after trigger channel
-	//          ADC value meets or exceeds this value (in direction away
-	//          from trig_thresh_relax).
-	// bits [13: 0] - threshold, signed
-	// bit  [31:14] - reserved
+	TrigThreshExcite uint32 //  trig_thresh_excite: trigger excitation threshold Trigger is raised for one FPGA clock after trigger
+	//  channel ADC value meets or exceeds this value (in direction away from trig_thresh_relax).  bits [13:
+	//  0] - threshold, signed bit [31:14] - reserved
 
-	TrigThreshRelax uint32 //  trig_thresh_relax: trigger relaxation threshold
-	//          After a trigger has been raised, the trigger channel ADC value
-	//          must meet or exceeds this value (in direction away
-	//          from trig_thresh_excite) before a trigger will be raised again.
-	//          (Serves to debounce signal in schmitt-trigger style).
-	// bits [13: 0] - threshold, signed
-	// bit  [31:14] - reserved
+	TrigThreshRelax uint32 //  trig_thresh_relax: trigger relaxation threshold After a trigger has been raised, the trigger channel
+	//  ADC value must meet or exceeds this value (in direction away from trig_thresh_excite) before a
+	//  trigger will be raised again.  (Serves to debounce signal in schmitt-trigger style).  bits [13: 0] -
+	//  threshold, signed bit [31:14] - reserved
 
-	TrigDelay uint32 //  trig_delay: (traditional) trigger delay.
-	//          How long to wait after trigger is raised
-	//          before starting to capture samples from Video channel.
-	//          Note: this usage of 'delay' is traditional for radar digitizing
-	//          but differs from the red pitaya scope usage, which means
-	//          "number of decimated ADC samples to acquire after trigger is raised"
-	// bits [31: 0] - unsigned wait time, in ADC clocks.
+	TrigDelay uint32 //  trig_delay: (traditional) trigger delay.  How long to wait after trigger is raised before starting to
+	//  capture samples from Video channel.  Note: this usage of 'delay' is traditional for radar digitizing but
+	//  differs from the red pitaya scope usage, which means "number of decimated ADC samples to acquire after
+	//  trigger is raised" bits [31: 0] - unsigned wait time, in ADC clocks.
 
-	TrigLatency uint32 //  trig_latency: how long to wait after trigger relaxation before
-	//          allowing next excitation.
-	//          To further debounce the trigger signal, we can specify a minimum
-	//          wait time between relaxation and excitation.
-	// bits [31: 0] - unsigned latency time, in ADC clocks.
+	TrigLatency uint32 //  trig_latency: how long to wait after trigger relaxation before allowing next excitation.  To further
+	//  debounce the trigger signal, we can specify a minimum wait time between relaxation and excitation.  bits
+	//  [31: 0] - unsigned latency time, in ADC clocks.
 
 	TrigCount uint32 //  trig_count: number of trigger pulses detected since last reset
 	// bits [31: 0] - unsigned count of trigger pulses detected
@@ -274,13 +259,10 @@ type OgdarFPGARegMem struct {
 
 	ACPThreshExcite uint32
 
-	ACPThreshRelax uint32 //  acp_thresh_relax: acp relaxation threshold
-	//          After an acp has been detected, the acp channel ADC value
-	//          must meet or exceeds this value (in direction away
-	//          from acp_thresh_excite) before a acp will be detected again.
-	//          (Serves to debounce signal in schmitt-acp style).
-	// bits [11: 0] - threshold, signed
-	// bit  [31:14] - reserved
+	ACPThreshRelax uint32 //  acp_thresh_relax: acp relaxation threshold After an acp has been detected, the acp channel ADC value
+	//  must meet or exceeds this value (in direction away from acp_thresh_excite) before a acp will be
+	//  detected again.  (Serves to debounce signal in schmitt-acp style).  bits [11: 0] - threshold, signed
+	//  bit [31:14] - reserved
 
 	ACPLatency uint32 //  acp_latency: how long to wait after acp relaxation before
 	//          allowing next excitation.
@@ -383,6 +365,7 @@ type OgdarFPGARegMem struct {
 	SavedTrigAtARP uint32 //  saved_trig_at_arp:  value at start of most recently captured pulse
 }
 
+// OgdarFPGA represents the redpitaya FPGA object.
 type OgdarFPGA struct {
 	Osc       *OscFPGARegMem            // Oscilloscope FPGA registers
 	Ogd       *OgdarFPGARegMem          // Ogdar FPGA registers
@@ -398,7 +381,7 @@ type OgdarFPGA struct {
 
 }
 
-// Open the FPGA and allocate pointers to memory-mapped registers and buffers
+// Open sets up pointers to FPGA memory-mapped registers and allocates buffers.
 func Open() (fpga *OgdarFPGA) {
 	var err error
 	fpga = new(OgdarFPGA)
@@ -442,7 +425,7 @@ cleanup:
 	return nil
 }
 
-// free FPGA resources
+// Close frees FPGA resources.
 func (fpga *OgdarFPGA) Close() {
 	if fpga.memfile == nil {
 		return
@@ -459,18 +442,18 @@ func (fpga *OgdarFPGA) Close() {
 	fpga.memfile = nil
 }
 
-// arm FPGA so it can start digitizing at next trigger
+// Arm tells the FPGA to start digitizing at the next trigger detection.
 func (fpga *OgdarFPGA) Arm() {
 	fpga.Osc.DigdarOptions = 21 // 1: only buffer samples *after* being triggered; (no: 2: negate range of sample values); 4: double-width reads; 16: return sum if decim <= 4
 	fpga.Osc.Conf |= OSC_FPGA_CONF_ARM_BIT
 }
 
-// Select FPGA trigger source
+// SelectTrig chooses the source used to trigger data acquisition.
 func (fpga *OgdarFPGA) SelectTrig(t TrigType) {
 	fpga.Osc.TrigSource = uint32(t)
 }
 
-// Set FPGA ADC decimation rate
+// SetDecim selects the FPGA ADC decimation rate.
 // decim must be a valid value for the FPGA build:
 //  1, 2, 3, 4, 8, 64, 1024, 8192, 65536
 // returns true on success; false otherwise
@@ -484,7 +467,7 @@ func (fpga *OgdarFPGA) SetDecim(decim uint32) bool {
 	}
 }
 
-// Set the number of samples to acquire after a trigger.
+// SetNumSamp sets the number of samples to acquire after a trigger.
 // Must be in the range 1...SAMPLES_PER_BUFF
 // returns true on success; false otherwise
 func (fpga *OgdarFPGA) SetNumSamp(n uint32) bool {
@@ -495,12 +478,13 @@ func (fpga *OgdarFPGA) SetNumSamp(n uint32) bool {
 	return false
 }
 
-// Check whether FPGA has triggered (i.e. has digitized a pulse)
+// HasTriggered checks whether the FPGA has received a trigger and completed sample acquisition
+// since the last call to Arm().
 func (fpga *OgdarFPGA) HasTriggered() bool {
 	return (fpga.Osc.TrigSource & OSC_FPGA_TRIG_SRC_MASK) == 0
 }
 
-// Return positions in sample buf of current write and last trigger.
+// Pos returns the slots in sample buf of the current write position and of the last trigger.
 func (fpga *OgdarFPGA) Pos() (curr uint32, trig uint32) {
 	curr = fpga.Osc.WrPtrCur
 	trig = fpga.Osc.WrPtrTrigger
