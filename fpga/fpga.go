@@ -355,7 +355,7 @@ type OgdarFPGA struct {
 }
 
 // Open sets up pointers to FPGA memory-mapped registers and allocates buffers.
-func Open() (fpga *OgdarFPGA) {
+func New() (fpga *OgdarFPGA) {
 	var err error
 	fpga = new(OgdarFPGA)
 	fpga.memfile, err = os.OpenFile("/dev/mem", os.O_RDWR, 0744)
