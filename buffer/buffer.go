@@ -14,15 +14,15 @@ import (
 	//	"unsafe"
 )
 
-// Sample represents the echo strength for a short period of time.
-// On the redpitaya, the fast ADCs return signed 14 bit samples @
-// 125MSPS representing a timestep of 8 ns.  The FPGA converts these
-// to unsigned 14 bit integers in the bottom of a 16 bit register.
-// TODO: The all-ones sample value is reserved, and will not be returned
-// by the FPGA.
+// Sample represents the echo strength for a short period of time.  On
+// the redpitaya, the fast ADCs return signed 14 bit samples @ 125MSPS
+// representing a timestep of 8 ns.  The FPGA converts these to
+// unsigned 14 bit integers in the bottom of a 16 bit register,
+// but converts 0 to 1 so, reserving 0 as a sentinel value.
 type Sample uint16
+
 const (
-	NOT_A_SAMPLE Sample = 0xffff // represents a slot that is not a sample
+	NOT_A_SAMPLE Sample = 0x0000 // value used to flag uninitialized samples or metadata in buffer
 )
 
 // Scanline is a sequence of samples received after one radar pulse
@@ -113,8 +113,8 @@ func (sb *SampleBuff) NextSliceFor(n int) (s []Sample) {
 		sb.iSample += n
 		sb.nSamples += uint64(n) // assumes slice will be filled
 	}
-	return
-}
+	return}
+
 
 // ScanlineBuff is a ring buffer of scanlines. Their samples are
 // stored in the sample buffer.  A sweep might wrap around the end of
@@ -125,6 +125,21 @@ type ScanlineBuff struct {
 	iScanline   int                          // location for next scanline to be written
 	nScanlines  uint64                       // total scanlines captured during this run
 }
+
+// ScanlineHandle represents a captured scanline which might or might
+// not still exist in the buffer.
+type ScanlineHandle uint64
+
+const (
+	BAD_SCANLINE ScanlineHandle = 0
+)
+
+// scanlineBuffer must hold < 65535 scanlines i.e. < 31.2s @ PRF=2100 Hz
+type ScanlineIndex uint16
+const (
+	BAD_INDEX ScanlineIndex = 0xFFFF
+)
+
 
 // Next returns the next Scanline for holding a scanline with n
 // samples, or nil if there is none.  trig is the trigger count of the

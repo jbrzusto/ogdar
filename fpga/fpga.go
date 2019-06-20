@@ -218,7 +218,7 @@ type OgdarRegs struct {
 	//  0] - threshold, signed bit [31:14] - reserved
 	TrigThreshRelax uint32 //  trig_thresh_relax: trigger relaxation threshold After a trigger has been raised, the trigger channel
 	//  ADC value must meet or exceeds this value (in direction away from trig_thresh_excite) before a
-	//  trigger will be raised again.  (Serves to debounce signal in schmitt-trigger style).  bits [13: 0] -
+	//  trigger will be raised again.  (Serves to debounce signal in Schmitt trigger style).  bits [13: 0] -
 	//  threshold, signed bit [31:14] - reserved
 	TrigDelay uint32 //  trig_delay: (traditional) trigger delay.  How long to wait after trigger is raised before starting to
 	//  capture samples from Video channel.  Note: this usage of 'delay' is traditional for radar digitizing but
@@ -250,7 +250,7 @@ type OgdarRegs struct {
 	ACPThreshExcite uint32
 	ACPThreshRelax  uint32 //  acp_thresh_relax: acp relaxation threshold After an acp has been detected, the acp channel ADC value
 	//  must meet or exceeds this value (in direction away from acp_thresh_excite) before a acp will be
-	//  detected again.  (Serves to debounce signal in schmitt-acp style).  bits [11: 0] - threshold, signed
+	//  detected again.  (Serves to debounce signal in Schmitt trigger style).  bits [11: 0] - threshold, signed
 	//  bit [31:14] - reserved
 	ACPLatency uint32 //  acp_latency: how long to wait after acp relaxation before
 	//          allowing next excitation.
@@ -281,7 +281,7 @@ type OgdarRegs struct {
 	//          After an arp has been detected, the arp channel ADC value
 	//          must meet or exceeds this value (in direction away
 	//          from arp_thresh_excite) before a arp will be detected again.
-	//          (Serves to debounce signal in schmitt-arp style).
+	//          (Serves to debounce signal in Schmitt trigger style).
 	// bits [11: 0] - threshold, signed
 	// bit  [31:14] - reserved
 	ARPLatency uint32 //  arp_latency: how long to wait after arp relaxation before
