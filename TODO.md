@@ -41,3 +41,9 @@ func (slb *ScanlineBuffer) indexOf (sh ScanlineHandle) ScanlineIndex {
   - NewSweep() - called when a scanline is received that should start a new sweep
     based on azi clock and cut
   -
+
+FPGA: can we always start filling the buffer at offset 0 when triggered (and possibly delayed)?
+That way:
+- scanline data always starts at offset 0
+- scanline does not wrap around end of BRAM buffer, simplifying code for
+  reading a scanline from the FPGA
