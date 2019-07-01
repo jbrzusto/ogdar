@@ -4,17 +4,19 @@ import (
 	"fmt"
 	"github.com/jbrzusto/ogdar/fpga"
 	"github.com/jbrzusto/ogdar/buffer"
+	"time"
 )
 
 func main() {
-	fmt.Print("About to initiate fpga access...\n")
 	fpga := fpga.New()
 	if fpga == nil {
 		fmt.Print("Unable to access FPGA!\n\nThis program is for the redpitaya, not the RPI3\n\n")
 		return
 	}
-	fmt.Print("About to read fpga registers...\n")
-	fmt.Printf("ARP count: %d\nACP per ARP: %d\n", fpga.ARPCount, fpga.ACPPerARP)
+	tc1 := fpga.TrigCount
+	time.Sleep(time.Second)
+	tc2 := fpga.TrigCount
+	fmt.Printf("ARP count: %d\nACP per ARP: %d\nPRF: %d\n", fpga.ARPCount, fpga.ACPPerARP, tc2 - tc1)
 	fpga.Close()
 	buffer := buffer.SampleBuff{}
 	fmt.Printf("Length of buffer is %d\n", len(buffer.SampBuff))
