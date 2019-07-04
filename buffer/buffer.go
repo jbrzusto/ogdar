@@ -18,7 +18,9 @@ import (
 // the redpitaya, the fast ADCs return signed 14 bit samples @ 125MSPS
 // representing a timestep of 8 ns.  The FPGA converts these to
 // unsigned 14 bit integers in the bottom of a 16 bit register,
-// but converts 0 to 1 so, reserving 0 as a sentinel value.
+// or occupying up to 16 bits in the case of summed samples at decimation
+// rates of 2, 3, or 4.  However, 0 is never returned by the FPGA; instead,
+// 0 is incremented to 1.  This reserves 0 as a sentinel value.
 type Sample uint16
 
 const (
