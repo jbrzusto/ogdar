@@ -57,11 +57,7 @@ const (
 	OSC_FPGA_SIG_LEN        = SAMPLES_PER_BUFF     // Size of data buffer into which input signal is captured , must be 2^n!
 	OSC_FPGA_CONF_ARM_BIT   = 1                    // Bit index in FPGA configuration register for arming the trigger
 	OSC_FPGA_CONF_RST_BIT   = 2                    // Bit index in FPGA configuration register for reseting write state machine
-	OSC_FPGA_POST_TRIG_ONLY = 4                    // Bit index in FPGA configuration register for only writing after a trigger is detected
 	OSC_FPGA_TRIG_SRC_MASK  = 0x0000000f           // Bit mask in the trigger_source register for depicting the trigger source type.
-	OSC_FPGA_CHA_THR_MASK   = 0x00003fff           // Bit mask in the cha_thr register for depicting trigger threshold on channel A.
-	OSC_FPGA_CHB_THR_MASK   = 0x00003fff           // Bit mask in the cha_thr register for depicting trigger threshold on channel B.
-	OSC_FPGA_TRIG_DLY_MASK  = 0xffffffff           // Bit mask in the trigger_delay register for depicting trigger delay.
 	OSC_FPGA_CHA_OFFSET     = 0x10000              // Offset to the memory buffer where signal on channel A is captured.
 	OSC_FPGA_CHB_OFFSET     = 0x20000              // Offset to the memory buffer where signal on channel B is captured.
 	OSC_FPGA_XCHA_OFFSET    = 0x30000              // Offset to the memory buffer where signal on slow channel A is captured.
@@ -78,141 +74,67 @@ const (
 type TrigType uint32
 
 const (
-	_                      = iota
-	TRG_IMMEDIATE TrigType = iota // start acquisition without waiting
-	TRG_CHA_POS                   // rising edge on channel A - not used by ogdar
-	TRG_CHA_NEG                   // falling edge on channel A - not used by ogdar
-	TRG_CHB_POS                   // rising edge on channel B - not used by ogdar
-	TRG_CHB_NEG                   // falling edge on channel B - not used by ogdar
-	TRG_EXT_0                     // external trigger (from where?) - not used by ogdar
-	TRG_EXT_1                     // external trigger (from hwere?) - not used by ogdar
-	TRG_ASG_POS                   // signal generater rising edge - not used by ogdar
-	TRG_ASG_NEG                   // signal generater falling edge - not used by ogdar
-	TRG_TRIG                      // pulse on radar trigger channel
-	TRG_ACP                       // pulse on radar ACP channel
-	TRG_ARP                       // pulse on radar ARP channel
+	_             TrigType = iota
+	TRG_IMMEDIATE          // start acquisition immediately upon arming
+	TRG_TRIG               // pulse on radar trigger channel
+	TRG_ACP                // pulse on radar ACP channel
+	TRG_ARP                // pulse on radar ARP channel
 )
 
 // DigdarOption is a set of bit flags for the field OscFPGARegMem.DigdarOptions
 type DigdarOption uint32
 
 const (
-	DDOPT_NO_WRITE_BEFORE_TRIGGER DigdarOption = 1 << iota // original scope app writes constantly to BRAM; set this bit to 1
-	// to write only after a trigger is detected
-	DDOPT_NEGATE_VIDEO // invert video sample values
-	DDOPT_32_BIT_READS // use 32-bit reads from FPGA BRAM to grab two 16-bit samples at a time
-	DDOPT_COUNT_MODE   // return ADC clock count instead of real video samples; for testing
-	DDOPT_USE_SUM      // return sample sum, not average, for decimation rates <= 4
+	DDOPT_NEGATE_VIDEO = 1 << iota // invert video sample values
+	DDOPT_COUNT_MODE               // return ADC clock count instead of real video samples; for testing
+	DDOPT_USE_SUM                  // return sample sum, not average, for decimation rates <= 4
 )
 
 // OscRegs is a direct image of physical FPGA memory. It provides direct read/write access to FPGA registers when it is mmapped to
 // OSC_FPGA_BASE_ADDR through /dev/mem.
 type OscRegs struct {
 
-	// This struct is a
-
-	Conf uint32 //  Configuration:
+	Config uint32 //  Configuration (offset 0x0000)
 	// bit     [0] - arm_trigger
 	// bit     [1] - rst_wr_state_machine
 	// bits [31:2] - reserved
 
-	TrigSource uint32 //  Trigger source:
+	TrigSource uint32 //  Trigger source (offset 0x0004)
 	// bits [ 3 : 0] - trigger source:
-	//   1 - trig immediately
-	//   2 - ChA positive edge
-	//   3 - ChA negative edge
-	//   4 - ChB positive edge
-	//   5 - ChB negative edge
-	//   6 - External trigger 0
-	//   7 - External trigger 1
-	//   8 - ASG positive edge
-	//   9 - ASG negative edge
-	//  10 - digdar counted trigger pulse
-	//  11 - digdar acp pulse
-	//  12 - digdar arp pulse
+	//   0 - don't trigger
+	//   1 - trigger immediately upon arming
+	//   2 - digdar trigger pulse
+	//   3 - digdar acp pulse
+	//   4 - digdar arp pulse
 	// bits [31 : 4] -reserved
 
-	ChaThr uint32 //  ChA threshold:
-	// bits [13: 0] - ChA threshold
-	// bits [31:14] - reserved
-
-	ChbThr uint32 //  ChB threshold:
-	// bits [13: 0] - ChB threshold
-	// bits [31:14] - reserved
-
-	NumSamp uint32 //  Number of samples to write after being triggered
+	NumSamp uint32 //  Number of samples to write after being triggered (offset 0x0008)
 	// bits [31: 0] - trigger delay
 	// 32 bit number - how many decimated samples should be stored into a buffer.
 	// (max 16k samples)
 
-	DataDec uint32 //  Data decimation
-	// bits [16: 0] - decimation factor, legal values:
-	//   1, 2, 3, 4, 8, 64, 1024, 8192 65536
-	//   If other values are written data is undefined
-	// FIXME: doesn't the digdar FPGA build allow arbitrary decimation values?
+	DecRate uint32 //  Data decimation (offset 0x000C)
+	// bits [16: 0] - decimation rate
+	// For rates 1, 2, 3, 4, samples can be summed instead of decimated
+	// For rates 1, 2, 4, 8, 64, 1024, 8192 65536, samples can be averaged instead of decimated
 	// bits [31:17] - reserved
 
-	WrPtrCur uint32 // where machine stopped writing after trigger
-	// bits [13: 0] - index into
-	// bits [31:14] - reserved
-
-	WrPtrTrigger uint32 // where trigger was detected
-	// bits [13: 0] - pointer
-	// bits [31:14] - reserved
-
-	UnusedChaHystersis uint32 //  ChA & ChB hysteresis - both of the format:
-	// bits [13: 0] - hysteresis threshold
-	// bits [31:14] - reserved
-
-	UnusedChbHystersis uint32
-
-	UnusedOther uint32 // @brief
+	Averaging uint32 // signal averaging (offset 0x0010)
 	// bits [0] - enable signal average at decimation
 	// bits [31:1] - reserved
+	// Defaults to 0x1 in FPGA
 
-	Reserved uint32
+	DigdarOptions DigdarOption // digdar-specific options; see type DigdarOption (offset 0x0014)
 
-	UnusedChaFiltAa uint32 // ChA Equalization filter
-	// bits [17:0] - AA coefficient (pole)
-	// bits [31:18] - reserved
-
-	UnusedChaFiltBb uint32 // ChA Equalization filter
-	// bits [24:0] - BB coefficient (zero)
-	// bits [31:25] - reserved
-
-	UnusedChaFiltKk uint32 // ChA Equalization filter
-	// bits [24:0] - KK coefficient (gain)
-	// bits [31:25] - reserved
-
-	UnusedChaFiltPp uint32 // ChA Equalization filter
-	// bits [24:0] - PP coefficient (pole)
-	// bits [31:25] - reserved
-
-	UnusedChbFiltAa uint32 // ChB Equalization filter
-	// bits [17:0] - AA coefficient (pole)
-	// bits [31:18] - reserved
-
-	UnusedChbFiltBb uint32 // ChB Equalization filter
-	// bits [24:0] - BB coefficient (zero)
-	// bits [31:25] - reserved
-
-	UnusedChbFiltKk uint32 // ChB Equalization filter
-	// bits [24:0] - KK coefficient (gain)
-	// bits [31:25] - reserved
-
-	UnusedChbFiltPp uint32 // ChB Equalization filter
-	// bits [24:0] - PP coefficient (pole)
-	// bits [31:25] - reserved
-
-	DigdarOptions DigdarOption // digdar-specific options (see type DigdarOption)
-
+	ADCCounter uint32 // 14-bit ADC counter used in counting mode (offset 0x18)
 }
 
 // OgdarRegs is a direct image of physical FPGA memory. It provides direct read/write access to FPGA registers when it is mmapped
 // to DIGDAR_FPGA_BASE_ADDR through /dev/mem.
 type OgdarRegs struct {
 
-	// TRIG
+	// TRIGGER
+	//
 	TrigThreshExcite uint32 //  trig_thresh_excite: trigger excitation threshold Trigger is raised for one FPGA clock after trigger
 	//  channel ADC value meets or exceeds this value (in direction away from trig_thresh_relax).  bits [13:
 	//  0] - threshold, signed bit [31:14] - reserved
@@ -300,10 +222,11 @@ type OgdarRegs struct {
 	// bits [31: 0] - unsigned (low 32 bits) of ADC clock count
 	ARPPrevClockHigh uint32 //  arp_prev_clock_high: ADC clock count at previous arp pulse
 	// bits [31: 0] - unsigned (high 32 bits) of ADC clock count
-	ACPPerARP uint32 /*  acp_per_arp: count of ACP pulses between two most recent ARP pulses
-	bits [31: 0] - unsigned count of ACP pulses */
+	ACPPerARP uint32 //  acp_per_arp: count of ACP pulses between two most recent ARP pulses
+	// bits [31: 0] - unsigned count of ACP pulses
 
 	// Saved Copies
+	//
 	// For these metadata, we want to record the values at the time of the
 	// most recently *captured* pulse.  So if the capture thread is not keeping up
 	// with the radar, we still have correct values of these metadata for each
