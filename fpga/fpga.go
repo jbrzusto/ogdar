@@ -94,12 +94,12 @@ const (
 // OSC_FPGA_BASE_ADDR through /dev/mem.
 type OscRegs struct {
 
-	Config uint32 //  Configuration (offset 0x0000)
+	Command uint32 // Command register (offset 0x0000)
 	// bit     [0] - arm_trigger
 	// bit     [1] - rst_wr_state_machine
 	// bits [31:2] - reserved
 
-	TrigSource uint32 //  Trigger source (offset 0x0004)
+	TrigSource uint32 // Trigger source (offset 0x0004)
 	// bits [ 3 : 0] - trigger source:
 	//   0 - don't trigger
 	//   1 - trigger immediately upon arming
@@ -340,8 +340,8 @@ func (fpga *OgdarFPGA) Close() {
 
 // Arm tells the FPGA to start digitizing at the next trigger detection.
 func (fpga *OgdarFPGA) Arm() {
-	fpga.DigdarOptions = 21 // 1: only buffer samples *after* being triggered; (no: 2: negate range of sample values); 4: double-width reads; 16: return sum if decim <= 4
-	fpga.Conf |= OSC_FPGA_CONF_ARM_BIT
+	fpga.DigdarOptions = DDOPT_NEGATE_VIDEO | DDOPT_USE_SUM
+	fpga.Command |= OSC_FPGA_CONF_ARM_BIT
 }
 
 // SelectTrig chooses the source used to trigger data acquisition.
@@ -356,7 +356,7 @@ func (fpga *OgdarFPGA) SelectTrig(t TrigType) {
 func (fpga *OgdarFPGA) SetDecim(decim uint32) bool {
 	switch decim {
 	case 1, 2, 3, 4, 8, 64, 1024, 8192, 65536:
-		fpga.DataDec = decim
+		fpga.DecRate = decim
 		return true
 	default:
 		return false
@@ -378,11 +378,4 @@ func (fpga *OgdarFPGA) SetNumSamp(n uint32) bool {
 // since the last call to Arm().
 func (fpga *OgdarFPGA) HasTriggered() bool {
 	return (fpga.TrigSource & OSC_FPGA_TRIG_SRC_MASK) == 0
-}
-
-// Pos returns the slots in sample buf of the current write position and of the last trigger.
-func (fpga *OgdarFPGA) Pos() (curr uint32, trig uint32) {
-	curr = fpga.WrPtrCur
-	trig = fpga.WrPtrTrigger
-	return
 }
