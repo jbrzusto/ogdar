@@ -7,6 +7,6 @@ all: ogdar cmds
 ogdar: ogdar.go fpga/fpga.go buffer/buffer.go
 	go build  -ldflags "-linkmode external -extldflags -static"
 	mkdir -p targets
-	cp ogdar targets
+	mv ogdar targets
 cmds:
 	./build_cmds.sh
