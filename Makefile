@@ -2,7 +2,7 @@
 # Since we are building on the RPi3 for the redpitaya,
 # we need to make static executables.
 
-LDFLAGS_STATIC := "-ldflags -linkmode external -extldflags -static"
+LDFLAGS_STATIC=-ldflags "-linkmode external -extldflags -static"
 all: ogdar cmds
 
 ogdar: ogdar.go fpga/fpga.go buffer/buffer.go
