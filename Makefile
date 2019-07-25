@@ -5,7 +5,7 @@
 LDFLAGS_STATIC=-ldflags "-linkmode external -extldflags -static"
 all: ogdar cmds
 
-ogdar: ogdar.go fpga/fpga.go buffer/buffer.go
+ogdar: ogdar.go fpga buffer
 	go build $(LDFLAGS_STATIC)
 	mkdir -p targets
 	mv ogdar targets
