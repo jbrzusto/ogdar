@@ -8,5 +8,5 @@ cd cmd
 for x in *; do
     cd $x
     go build -ldflags "-linkmode external -extldflags -static"
-    cp $x ../../targets
+    mv $x ../../targets
 done
