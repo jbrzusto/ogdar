@@ -6,17 +6,17 @@ LDFLAGS_STATIC := "-ldflags -linkmode external -extldflags -static"
 all: ogdar cmds
 
 ogdar: ogdar.go fpga/fpga.go buffer/buffer.go
-	go build $LDFLAGS_STATIC
+	go build $(LDFLAGS_STATIC)
 	mkdir -p targets
 	mv ogdar targets
 
 fpga: fpga/fpga.go
 	cd fpga
-	go build $LDFLAGS_STATIC
+	go build $(LDFLAGS_STATIC)
 
 buffer: buffer/buffer.go
 	cd buffer
-	go build $LDFLAGS_STATIC
+	go build $(LDFLAGS_STATIC)
 
 cmds: fpga buffer
 	./build_cmds.sh
