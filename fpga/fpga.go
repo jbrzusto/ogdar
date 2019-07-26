@@ -100,7 +100,7 @@ type Control struct {
 
 	DecRate uint32 `reg:"dec_rate" mode:"rw" desc:"Decimation Rate: number of input samples to consume for one output sample. 0...65536.  For rates 1, 2, 3 and 4, samples can be summed instead of decimated.  For rates 1, 2, 4, 8, 64, 1024, 8192 and 65536, samples can be averaged instead of decimated bits [31:17] - reserved"`
 
-	Options DigdarOption `reg:"options" mode:"rw" desc:"Options: digdar-specific options; see type DigdarOption bit[0]: Average samples; bit[1]: Sum samples; bit[2]: Negate video; bit[3]: Counting mode"`
+	Options uint32 `reg:"options" mode:"rw" desc:"Options: digdar-specific options; see type DigdarOption bit[0]: Average samples; bit[1]: Sum samples; bit[2]: Negate video; bit[3]: Counting mode"`
 
 	TrigThreshExcite uint32 `reg:"trig_thresh_excite" mode:"rw" desc:"Trigger Excite Threshold: Trigger pulse is detected after trigger channel ADC value meets or exceeds this value (in direction away from the Trigger Relax Threshold).  -8192...8191"`
 
