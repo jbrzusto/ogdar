@@ -8,16 +8,13 @@ import (
 )
 
 func main() {
-	fpga := fpga.New()
-	if fpga == nil {
-		fmt.Print("Unable to access FPGA!\n\nThis program is for the redpitaya, not the RPI3\n\n")
-		return
+	for x := range fpga.ControlMap {
+		fmt.Printf("%s = %p\n", x, fpga.ControlMap[x])
 	}
-	tc1 := fpga.TrigCount
+	tc1 := fpga.Fpga.TrigCount
 	time.Sleep(time.Second)
-	tc2 := fpga.TrigCount
-	fmt.Printf("ARP count: %d\nACP per ARP: %d\nPRF: %d\n", fpga.ARPCount, fpga.ACPPerARP, tc2 - tc1)
-	fpga.Close()
+	tc2 := fpga.Fpga.TrigCount
+	fmt.Printf("ARP count: %d\nACP per ARP: %d\nPRF: %d\n", fpga.Fpga.ARPCount, fpga.Fpga.ACPPerARP, tc2 - tc1)
 	buffer := buffer.SampleBuff{}
 	fmt.Printf("Length of buffer is %d\n", len(buffer.SampBuff))
 

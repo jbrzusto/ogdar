@@ -41,6 +41,7 @@ package fpga
 
 import (
 	"os"
+	"reflect"
 	"syscall"
 	"unsafe"
 )
@@ -193,105 +194,154 @@ type FPGA struct {
 	memfile   *os.File                  // pointer to open file /dev/mem for mmaping registers
 }
 
-// Open sets up pointers to FPGA memory-mapped registers and allocates buffers.
-func New() (fpga *FPGA) {
+// controlMap translates between names of control parameters and pointers to them.
+var ControlMap map[string]*uint32
+
+// FPGA will represent the FPGA
+var Fpga *FPGA
+
+// initialize the FPGA and ControlMap
+func init() {
 	var err error
-	fpga = new(FPGA)
-	fpga.memfile, err = os.OpenFile("/dev/mem", os.O_RDWR, 0744)
+	Fpga = new(FPGA)
+	Fpga.memfile, err = os.OpenFile("/dev/mem", os.O_RDWR, 0744)
 	if err != nil {
-		return nil
+		panic("can't open memory")
 	}
-	fpga.regSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR, BASE_SIZE, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
+	Fpga.regSlice, err = syscall.Mmap(int(Fpga.memfile.Fd()), BASE_ADDR, BASE_SIZE, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
 	if err != nil {
-		goto cleanup
+		panic("can't mmap main Fpga registers")
 	}
-	fpga.Regs = (*Regs)(unsafe.Pointer(&fpga.regSlice))
-	fpga.vidSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR+CHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	Fpga.Regs = (*Regs)(unsafe.Pointer(&Fpga.regSlice))
+	Fpga.vidSlice, err = syscall.Mmap(int(Fpga.memfile.Fd()), BASE_ADDR+CHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
-		goto cleanup
+		panic("can't mmap video buffer")
 	}
-	fpga.VidBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.vidSlice[0]))
-	fpga.trigSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR+CHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	Fpga.VidBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&Fpga.vidSlice[0]))
+	Fpga.trigSlice, err = syscall.Mmap(int(Fpga.memfile.Fd()), BASE_ADDR+CHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
-		goto cleanup
+		panic("can't mmap trigger buffer")
 	}
-	fpga.TrigBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.trigSlice[0]))
-	fpga.acpSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR+XCHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	Fpga.TrigBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&Fpga.trigSlice[0]))
+	Fpga.acpSlice, err = syscall.Mmap(int(Fpga.memfile.Fd()), BASE_ADDR+XCHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
-		goto cleanup
+		panic("can't mmap ACP buffer")
 	}
-	fpga.ACPBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.acpSlice[0]))
-	fpga.arpSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR+XCHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	Fpga.ACPBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&Fpga.acpSlice[0]))
+	Fpga.arpSlice, err = syscall.Mmap(int(Fpga.memfile.Fd()), BASE_ADDR+XCHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
-		goto cleanup
+		panic("can't mmap ARP buffer")
 	}
-	fpga.ARPBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.arpSlice[0]))
-	return fpga
-cleanup:
-	fpga.Close()
-	return nil
+	Fpga.ARPBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&Fpga.arpSlice[0]))
+
+	ControlMap = make(map[string]*uint32)
+	x := reflect.ValueOf(&Fpga.Control).Elem()
+	xt := x.Type()
+	for i := 0; i < xt.NumField(); i++ {
+		f := xt.Field(i)
+		ControlMap[f.Name] = x.Field(i).Addr().Interface().(*uint32)
+	}
 }
 
-// Close frees FPGA resources.
-func (fpga *FPGA) Close() {
-	if fpga.memfile == nil {
-		return
-	}
-	_ = syscall.Munmap(fpga.arpSlice)
-	_ = syscall.Munmap(fpga.acpSlice)
-	_ = syscall.Munmap(fpga.trigSlice)
-	_ = syscall.Munmap(fpga.vidSlice)
-	_ = syscall.Munmap(fpga.regSlice)
-	fpga.ARPBuf = nil
-	fpga.ACPBuf = nil
-	fpga.TrigBuf = nil
-	fpga.VidBuf = nil
-	fpga.Regs = nil
-	fpga.memfile.Close()
-	fpga.memfile = nil
+// Open sets up pointers to Fpga memory-mapped registers and allocates buffers.
+// func New() (fpga *Fpga) {
+// 	var err error
+// 	fpga = new(Fpga)
+// 	fpga.memfile, err = os.OpenFile("/dev/mem", os.O_RDWR, 0744)
+// 	if err != nil {
+// 		return nil
+// 	}
+// 	fpga.regSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR, BASE_SIZE, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
+// 	if err != nil {
+// 		goto cleanup
+// 	}
+// 	fpga.Regs = (*Regs)(unsafe.Pointer(&fpga.regSlice))
+// 	fpga.vidSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR+CHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+// 	if err != nil {
+// 		goto cleanup
+// 	}
+// 	fpga.VidBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.vidSlice[0]))
+// 	fpga.trigSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR+CHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+// 	if err != nil {
+// 		goto cleanup
+// 	}
+// 	fpga.TrigBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.trigSlice[0]))
+// 	fpga.acpSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR+XCHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+// 	if err != nil {
+// 		goto cleanup
+// 	}
+// 	fpga.ACPBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.acpSlice[0]))
+// 	fpga.arpSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR+XCHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+// 	if err != nil {
+// 		goto cleanup
+// 	}
+// 	fpga.ARPBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.arpSlice[0]))
+// 	return fpga
+// cleanup:
+// 	fpga.Close()
+// 	return nil
+// }
+
+// Close frees Fpga resources.  NB: when would this ever be needed??
+// func (fpga *Fpga) Close() {
+// 	if fpga.memfile == nil {
+// 		return
+// 	}
+// 	_ = syscall.Munmap(fpga.arpSlice)
+// 	_ = syscall.Munmap(fpga.acpSlice)
+// 	_ = syscall.Munmap(fpga.trigSlice)
+// 	_ = syscall.Munmap(fpga.vidSlice)
+// 	_ = syscall.Munmap(fpga.regSlice)
+// 	fpga.ARPBuf = nil
+// 	fpga.ACPBuf = nil
+// 	fpga.TrigBuf = nil
+// 	fpga.VidBuf = nil
+// 	fpga.Regs = nil
+// 	fpga.memfile.Close()
+// 	fpga.memfile = nil
+//}
+
+// Reset tells the Fpga to restart digitizing
+func Reset() {
+	Fpga.Command |= CMD_RST_BIT
 }
 
-// Reset tells the FPGA to restart digitizing
-func (fpga *FPGA) Reset() {
-	fpga.Command |= CMD_RST_BIT
-}
-
-// Arm tells the FPGA to start digitizing at the next trigger detection.
-func (fpga *FPGA) Arm() {
-	fpga.Command |= CMD_ARM_BIT
+// Arm tells the Fpga to start digitizing at the next trigger detection.
+func  Arm() {
+	Fpga.Command |= CMD_ARM_BIT
 }
 
 // SelectTrig chooses the source used to trigger data acquisition.
-func (fpga *FPGA) SelectTrig(t TrigType) {
-	fpga.TrigSource = uint32(t)
+func SelectTrig(t TrigType) {
+	Fpga.TrigSource = uint32(t)
 }
 
-// SetDecim selects the FPGA ADC decimation rate.
+// SetDecim selects the Fpga ADC decimation rate.
 // Valid decimation rates are 1..65536.
-func (fpga *FPGA) SetDecim(decim uint32) bool {
+func SetDecim(decim uint32) bool {
 	if decim < 1 || decim > 65536 {
 		return false
 	}
-	fpga.DecRate = decim
+	Fpga.DecRate = decim
 	return true
 }
 
 // SetNumSamp sets the number of samples to acquire after a trigger.
 // Must be in the range 1...SAMPLES_PER_BUFF
 // returns true on success; false otherwise
-func (fpga *FPGA) SetNumSamp(n uint32) bool {
+func SetNumSamp(n uint32) bool {
 	if n > SAMPLES_PER_BUFF || n < 1 {
 		return false
 	}
-	fpga.NumSamp = n
+	Fpga.NumSamp = n
 	return true
 }
 
-// HasTriggered checks whether the FPGA has received a trigger and completed sample acquisition
+// HasTriggered checks whether the Fpga has received a trigger and completed sample acquisition
 // since the last call to Arm().
 //
 // Note: if called before the first call to Arm(), returns true
 // even though there are no data available in the buffer.
-func (fpga *FPGA) HasTriggered() bool {
-	return (fpga.TrigSource & TRIG_SRC_MASK) == 0
+func HasTriggered() bool {
+	return (Fpga.TrigSource & TRIG_SRC_MASK) == 0
 }
