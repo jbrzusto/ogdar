@@ -39,29 +39,38 @@ const (
 	DECIM_AVG // the average of every n consecutive samples is used; n = 2^m for m = 1, 2, 3, 6, 10, 13, 15
 )
 
-// Scanline is a sequence of samples received after one radar pulse
-// is emitted, and represents received echo strength versus range (or
-// equivalently, time).  It is bundled with metadata from which the
-// absolute time and azimuth can be derived:
+// ScanlineHdr provides metadata for a Scanline
+// These allow derivation of absolute time and azimuth:
 //
-// - ADC clock ticks since some known event
+// - ADC clock ticks since reset
+//
+// - ARPs (azimuth return pulses) occur once per rotation at
+// approximately the same physical azimuth across radar restarts; due
+// to variance in its detection, we treat this statistically.
 //
 // - ACPs (azimuth count pulses) occur at a known number of evenly
 // spaced azimuths, but the physical azimuth of the first azimuth
 // pulse after a radar restart is unknown.
 //
-// - ARPs (azimuth return pulses) occur once per rotation at
-// approximately the same physical azimuth across radar restarts; due
-// to variance in its detection, we treat this statistically.
-type Scanline struct {
+// and provide sample spacing (DecimRateM1), initial distance from the radar (Extra, bits 13:0),
+// and treatment of multiple samples (Extra, bits 15:14).
+type ScanlineHdr struct {
 	ARPCount  uint32 // number of ARP pulses since reset; could wrap, but will take 170 years even at 48 RPM
 	TrigClock uint32 // ADC clock ticks since last ACP wraparound
 	TrigCount uint32 // low 32-bits of count of trigger pulses since reset, including those not captured
 	ACPClock  uint32 // bits 31:20 - ACPs since last ACP wraparound; bits 19:0 - ADC clock ticks since last ACP
 	DecimRateM1
-	Extra uint16    // bits 15:14: DecimMode; bits 13:0 skipped clocks before first sample (i.e. additional trigger delay)
+	Extra uint16     // bits 15:14: DecimMode; bits 13:0 skipped clocks before first sample (i.e. additional trigger delay)
+}
+
+// Scanline is a sequence of samples received after one radar pulse
+// is emitted, and represents received echo strength versus range (or
+// equivalently, time).  It is bundled with metadata.
+
+type Scanline struct {
+	ScanlineHdr      // metadata
 	Samples []Sample // slice from sample buffer corresponding to
-	// samples in this scanline.  There are 2 extra samples stored
+	// samples.  There are two extra  samples stored
 	// in the samplebuffer at the start of each scanline's
 	// samples: a NOT_A_SAMPLE to mark the start of scanline, and
 	// then a uint16 scanline serial number which is the low-order
