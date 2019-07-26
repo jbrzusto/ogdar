@@ -55,8 +55,8 @@ const (
 	BASE_ADDR              = 0x40100000           // Starting address of FPGA registers handling Oscilloscope module
 	BASE_SIZE              = 0x50000              // The size of FPGA registers handling Oscilloscope module
 	SIG_LEN                = SAMPLES_PER_BUFF     // Size of data buffer into which input signal is captured , must be 2^n!
-	CONF_ARM_BIT           = 1                    // Bit index in FPGA configuration register for arming the trigger
-	CONF_RST_BIT           = 2                    // Bit index in FPGA configuration register for reseting write state machine
+	CMD_ARM_BIT            = 1                    // Bit index in FPGA Command register for arming the trigger
+	CMD_RST_BIT            = 2                    // Bit index in FPGA Command register for resetting write state machine
 	TRIG_SRC_MASK          = 0x0000000f           // Bit mask in the trigger_source register for depicting the trigger source type.
 	CHA_OFFSET             = 0x10000              // Offset to the memory buffer where signal on channel A is captured.
 	CHB_OFFSET             = 0x20000              // Offset to the memory buffer where signal on channel B is captured.
@@ -251,9 +251,14 @@ func (fpga *FPGA) Close() {
 	fpga.memfile = nil
 }
 
+// Reset tells the FPGA to restart digitizing
+func (fpga *FPGA) Reset() {
+	fpga.Command |= CMD_RST_BIT
+}
+
 // Arm tells the FPGA to start digitizing at the next trigger detection.
 func (fpga *FPGA) Arm() {
-	fpga.Command |= CONF_ARM_BIT
+	fpga.Command |= CMD_ARM_BIT
 }
 
 // SelectTrig chooses the source used to trigger data acquisition.
