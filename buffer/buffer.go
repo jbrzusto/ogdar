@@ -27,6 +27,18 @@ const (
 	NOT_A_SAMPLE Sample = 0x0000 // value used to flag uninitialized samples or metadata in buffer
 )
 
+// DecimRateM1 is the number of ADC clocks per sample, minus one.
+// i.e. 0 means 1 clock per sample (125 MSPS); 1 means 2 clocks per sample (62.5 MSPS), etc
+type DecimRateM1 uint16
+
+// DecimMode is how multiple samples are combined (if at all) when decimating
+type DecimMode uint16
+const (
+	DECIM_DECIM DecimMode = iota // the last of every n samples is used; n >= 1
+	DECIM_SUM // the sum of every n consecutive samples is used; n <= 4
+	DECIM_AVG // the average of every n consecutive samples is used; n = 2^m for m = 1, 2, 3, 6, 10, 13, 15
+)
+
 // Scanline is a sequence of samples received after one radar pulse
 // is emitted, and represents received echo strength versus range (or
 // equivalently, time).  It is bundled with metadata from which the
@@ -44,12 +56,12 @@ const (
 type Scanline struct {
 	ARPCount  uint32 // number of ARP pulses since reset; could wrap, but will take 170 years even at 48 RPM
 	TrigClock uint32 // ADC clock ticks since last ACP wraparound
-	TrigCount uint64 // count of trigger pulses since reset, including those not captured; note 8-byte alignment of this member, so keep it at 8n bytes offset from start of Scanline
-	ACPClock  uint32 // bits 31:20 - ACPs since last ACP wraparound; bits 19:0 - clock ticks since last ACP
-	// and M is the fraction of 8 ms represented by the time since the latest ACP
-	// i.e. M = elapsed ADC clock ticks (@125MHz) / 1E6
+	TrigCount uint32 // low 32-bits of count of trigger pulses since reset, including those not captured
+	ACPClock  uint32 // bits 31:20 - ACPs since last ACP wraparound; bits 19:0 - ADC clock ticks since last ACP
+	DecimRateM1
+	Extra uint16    // bits 15:14: DecimMode; bits 13:0 skipped clocks before first sample (i.e. additional trigger delay)
 	Samples []Sample // slice from sample buffer corresponding to
-	// samples in this scanline There are 2 extra samples stored
+	// samples in this scanline.  There are 2 extra samples stored
 	// in the samplebuffer at the start of each scanline's
 	// samples: a NOT_A_SAMPLE to mark the start of scanline, and
 	// then a uint16 scanline serial number which is the low-order
@@ -58,31 +70,27 @@ type Scanline struct {
 	// storage has been overwritten.
 }
 
-// DecimMode indicates what kind sample decimation was performed.
-// 0: a sample is recorded at each sample clock
-// -3 <= n <= -1: (1-n) consecutive samples are summed and the sum is recorded
-// n > 0: n samples are skipped after recording a sample.
-type DecimMode int32
-
 // Sweep is a sequence of scanlines from a full rotation of the radar antenna.
 type Sweep struct {
 	ARP    uint32    // ARP count since reset at first scanline
 	ts0    time.Time // time of first scanline in sweep
 	tw1    time.Time // time of last scanline in sweep
-	range0 float64   // range of rist sample, in meters
 	clock  uint32    // base rate of sampling clock, in Hz
-	DecimMode
+	uniform bool     // does every scanline in this sweep have the same decimation rate and first sample range?
+	n      uint16     // number of scanlines in this sweep (increases as sweep is accumulated)
+	s1 ScanlineHandle // handle for first scanline in this sweep
+	s2 ScanlineHandle // handle for last scanline in this sweep (changes as sweep is accumulated)
 	Lines  []Scanline // scanlines for this sweep
-	Lines2 []Scanline // 2nd contiguous segment of scanlines; empty unless sweep wraps over end of scanline buffer
+	Lines2 []Scanline // 2nd contiguous segment of scanlines; empty unless sweep wraps over end of Scanline buffer
 }
 
 // Amounts of RAM for sample and scanline buffers.
 // A typical sweep is ~5000 scanlines, with a max of say 4K samples,
 // for a total of 20 M samples = 40 MB.  We try for a buffer
 // of roughly 5 of these, so 200 MB for sample memory, and
-// 5 * 5000 = 25 K scanlines ~0.9 MB (@ 36 bytes per scanline)
+// 5 * 5000 = 25 K scanlines ~0.8 MB (@ 32 bytes per scanline)
 const (
-	SWEEP_BUFF_SIZE      = 5
+	SWEEP_BUFF_SIZE      = 5 // number of sweeps in sweep buffer
 	MAX_PRF              = 2200
 	MIN_RPM              = 22
 	MAX_SWEEP_SCANLINES  = MAX_PRF * (60 / MIN_RPM)
@@ -115,8 +123,8 @@ func (sb *SampleBuff) NextSliceFor(n int) (s []Sample) {
 		sb.iSample += n
 		sb.nSamples += uint64(n) // assumes slice will be filled
 	}
-	return}
-
+	return
+}
 
 // ScanlineBuff is a ring buffer of scanlines. Their samples are
 // stored in the sample buffer.  A sweep might wrap around the end of
@@ -130,18 +138,13 @@ type ScanlineBuff struct {
 
 // ScanlineHandle represents a captured scanline which might or might
 // not still exist in the buffer.
-type ScanlineHandle uint64
-
-const (
-	BAD_SCANLINE ScanlineHandle = 0
-)
-
-// scanlineBuffer must hold < 65535 scanlines i.e. < 31.2s @ PRF=2100 Hz
-type ScanlineIndex uint16
-const (
-	BAD_INDEX ScanlineIndex = 0xFFFF
-)
-
+// Bits [31:16] index in the scanline buffer
+// Bits [15:0] low 16 bits of TrigCount value of Scanline
+// We can quickly check whether a ScanlineHandle represents a Scanline
+// which is still in the buffer by testing whether the Scanline at the
+// purported index has the matching low 16 bits of TrigCount.  This
+// will wrap every 31 seconds or so at PRF 2100.
+type ScanlineHandle uint32
 
 // Next returns the next Scanline for holding a scanline with n
 // samples, or nil if there is none.  trig is the trigger count of the
@@ -167,6 +170,22 @@ func (slb *ScanlineBuff) Next(n int, trig uint64) (i int, err error) {
 
 func (s Scanline) Valid() (bool) {
 	return s.Samples[0] == NOT_A_SAMPLE && s.Samples[1] == Sample(s.TrigCount)
+}
+
+// SweepHandle is an opaque type representing a specific sweep
+// Bits [31:28] index in sweep buffer
+// Bits [27:0]  ARP for that sweep
+// We can quickly check whether a SweepHandle represents
+// a Sweep that is still in the SweepBuffer by testing whether the sweep at the
+// purported index has the correct lower 28 bits of ARP count.
+// This would take 97 days to wrap around even at 60 RPM.
+type SweepHandle uint32
+
+// SweepBuffer is a ring buffer of sweeps
+type SweepBuffer struct {
+	Sweeps []Sweep // slice of sweeps
+	i int // index of next slot to fill in Sweeps
+	n int // number of (valid) sweeps in Sweeps
 }
 
 // Clients can request to be informed of:
