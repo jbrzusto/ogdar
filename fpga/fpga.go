@@ -53,8 +53,8 @@ const (
 	SLOW_ADC_SAMPLE_PERIOD = 1.0 / SLOW_ADC_CLOCK // Slow ADC sample period
 	SAMPLES_PER_BUFF       = 16 * 1024            // Number of samples in a signal buffer
 	BUFF_SIZE_BYTES        = 4 * SAMPLES_PER_BUFF // Samples in buff are uint32, so 4 bytes big
-	BASE_ADDR              = 0x40100000           // Starting address of FPGA registers handling Oscilloscope module
-	BASE_SIZE              = 0x50000              // The size of FPGA registers handling Oscilloscope module
+	BASE_ADDR              = 0x40100000           // Starting address of FPGA registers handling the Digdar module
+	BASE_SIZE              = 0x0400               // The size of FPGA registers handling the Digdar module
 	SIG_LEN                = SAMPLES_PER_BUFF     // Size of data buffer into which input signal is captured , must be 2^n!
 	CMD_ARM_BIT            = 1                    // Bit index in FPGA Command register for arming the trigger
 	CMD_RST_BIT            = 2                    // Bit index in FPGA Command register for resetting write state machine
