@@ -10,13 +10,5 @@ ogdar: ogdar.go fpga buffer
 	mkdir -p targets
 	mv ogdar targets
 
-fpga: fpga/fpga.go
-	cd fpga
-	go build $(LDFLAGS_STATIC)
-
-buffer: buffer/buffer.go
-	cd buffer
-	go build $(LDFLAGS_STATIC)
-
 cmds: fpga buffer
 	./build_cmds.sh
