@@ -10,7 +10,7 @@ import (
 func main() {
 	for _, k := range ControlKeys {
 		if k != "Command" {
-			fmt.Printf("%-25s @%p = %uj\n", k, ControlMap[k], *ControlMap[k])
+			fmt.Printf("%-25s @%p = %d\n", k, ControlMap[k], *ControlMap[k])
 		}
 	}
 	tc1 := Fpga.TrigCount
