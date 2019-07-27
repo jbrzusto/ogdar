@@ -8,8 +8,10 @@ import (
 )
 
 func main() {
-	for x := range ControlMap {
-		fmt.Printf("%s = %p\n", x, ControlMap[x])
+	for _, k := range ControlKeys {
+		if k != "Command" {
+			fmt.Printf("%-25s @%p = %uj\n", k, ControlMap[k], *ControlMap[k])
+		}
 	}
 	tc1 := Fpga.TrigCount
 	time.Sleep(time.Second)

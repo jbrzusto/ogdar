@@ -197,6 +197,9 @@ type FPGA struct {
 // controlMap translates between names of control parameters and pointers to them.
 var ControlMap map[string]*uint32
 
+// controlKeys is a slice of keys to ControlMap, sorted in storage order
+var ControlKeys []string
+
 // FPGA will represent the FPGA
 var Fpga *FPGA
 
@@ -237,9 +240,11 @@ func init() {
 	ControlMap = make(map[string]*uint32)
 	x := reflect.ValueOf(&Fpga.Control).Elem()
 	xt := x.Type()
+	ControlKeys = make([]string, xt.NumField())
 	for i := 0; i < xt.NumField(); i++ {
 		f := xt.Field(i)
 		ControlMap[f.Name] = x.Field(i).Addr().Interface().(*uint32)
+		ControlKeys[i] = f.Name
 	}
 }
 
