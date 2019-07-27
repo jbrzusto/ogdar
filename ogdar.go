@@ -13,6 +13,7 @@ func main() {
 			fmt.Printf("%-25s @%p = %d\n", k, ControlMap[k], *ControlMap[k])
 		}
 	}
+	fmt.Printf("DecRate is %d\n", Fpga.DecRate)
 	tc1 := Fpga.TrigCount
 	time.Sleep(time.Second)
 	tc2 := Fpga.TrigCount
