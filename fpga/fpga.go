@@ -219,13 +219,10 @@ type FPGA struct {
 	ARPBuf    *[SAMPLES_PER_BUFF]uint32 // ARP sample buffer; used when configuring digitizer
 	ACPBuf    *[SAMPLES_PER_BUFF]uint32 // ACP sample buffer; used when configuring digitizer
 	memfile   *os.File                  // pointer to open file /dev/mem for mmaping registers
+	ControlMap map[string]*uint32 // controlMap translates between names of control parameters and pointers to them.
+	ControlKeys []string 	// controlKeys is a slice of keys to ControlMap, sorted in storage order
+
 }
-
-// controlMap translates between names of control parameters and pointers to them.
-var ControlMap map[string]*uint32
-
-// controlKeys is a slice of keys to ControlMap, sorted in storage order
-var ControlKeys []string
 
 // initialize the FPGA and ControlMap, but *not* at package load time
 // because that will fail on all but the redpitaya with appropriate FPGA build!
@@ -342,7 +339,7 @@ func New() (fpga *FPGA) {
 	}
 	fpga.ARPBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.arpSlice[0]))
 	// names of Control registers in a standard order
-	ControlKeys = []string{
+	fpga.ControlKeys = []string{
 		"Command",
 		"TrigSource",
 		"NumSamp",
@@ -361,29 +358,31 @@ func New() (fpga *FPGA) {
 	}
 	fmt.Println("Got past making ControlKeys")
 
-	// ControlMap = map[string]*uint32{
-	// 	"Command":          &fpga.Command,
-	// 	"TrigSource":       &fpga.TrigSource,
-	// 	"NumSamp":          &fpga.NumSamp,
-	// 	"DecRate":          &fpga.DecRate,
-	// 	"Options":          &fpga.Options,
-	// 	"TrigThreshExcite": &fpga.TrigThreshExcite,
-	// 	"TrigThreshRelax":  &fpga.TrigThreshRelax,
-	// 	"TrigDelay":        &fpga.TrigDelay,
-	// 	"TrigLatency":      &fpga.TrigLatency,
-	// 	"ACPThreshExcite":  &fpga.ACPThreshExcite,
-	// 	"ACPThreshRelax":   &fpga.ACPThreshRelax,
-	// 	"ACPLatency":       &fpga.ACPLatency,
-	// 	"ARPThreshExcite":  &fpga.ARPThreshExcite,
-	// 	"ARPThreshRelax":   &fpga.ARPThreshRelax,
-	// 	"ARPLatency":       &fpga.ARPLatency,
-	// }
-	// fmt.Println("Got past making ControlMap")
-
 	return fpga
 cleanup:
 	fpga.Close()
 	return nil
+}
+
+func (fpga *FPGA) MakeRegMap() {
+	fpga.ControlMap = map[string]*uint32 {
+		"Command":          &fpga.Command,
+		"TrigSource":       &fpga.TrigSource,
+		"NumSamp":          &fpga.NumSamp,
+		"DecRate":          &fpga.DecRate,
+		"Options":          &fpga.Options,
+		"TrigThreshExcite": &fpga.TrigThreshExcite,
+		"TrigThreshRelax":  &fpga.TrigThreshRelax,
+		"TrigDelay":        &fpga.TrigDelay,
+		"TrigLatency":      &fpga.TrigLatency,
+		"ACPThreshExcite":  &fpga.ACPThreshExcite,
+		"ACPThreshRelax":   &fpga.ACPThreshRelax,
+		"ACPLatency":       &fpga.ACPLatency,
+		"ARPThreshExcite":  &fpga.ARPThreshExcite,
+		"ARPThreshRelax":   &fpga.ARPThreshRelax,
+		"ARPLatency":       &fpga.ARPLatency,
+	}
+	fmt.Println("Got past making ControlMap")
 }
 
 // Close frees Fpga resources.  NB: when would this ever be needed??

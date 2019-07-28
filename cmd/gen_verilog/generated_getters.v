@@ -8,6 +8,7 @@
         `OFFSET_TrigThreshRelax            : begin ack <= 1'b1;  rdata <= trig_thresh_relax             [32-1: 0]; end
         `OFFSET_TrigDelay                  : begin ack <= 1'b1;  rdata <= trig_delay                    [32-1: 0]; end
         `OFFSET_TrigLatency                : begin ack <= 1'b1;  rdata <= trig_latency                  [32-1: 0]; end
+        `OFFSET_TrigCount                  : begin ack <= 1'b1;  rdata <= trig_count                    [32-1: 0]; end
         `OFFSET_ACPThreshExcite            : begin ack <= 1'b1;  rdata <= acp_thresh_excite             [32-1: 0]; end
         `OFFSET_ACPThreshRelax             : begin ack <= 1'b1;  rdata <= acp_thresh_relax              [32-1: 0]; end
         `OFFSET_ACPLatency                 : begin ack <= 1'b1;  rdata <= acp_latency                   [32-1: 0]; end
@@ -26,7 +27,6 @@
         `OFFSET_ARPClock_HI                : begin ack <= 1'b1;  rdata <= arp_clock                     [64-1:32]; end
         `OFFSET_ARPPrevClock_LO            : begin ack <= 1'b1;  rdata <= arp_prev_clock                [32-1: 0]; end
         `OFFSET_ARPPrevClock_HI            : begin ack <= 1'b1;  rdata <= arp_prev_clock                [64-1:32]; end
-        `OFFSET_TrigCount                  : begin ack <= 1'b1;  rdata <= trig_count                    [32-1: 0]; end
         `OFFSET_ACPCount                   : begin ack <= 1'b1;  rdata <= acp_count                     [32-1: 0]; end
         `OFFSET_ARPCount                   : begin ack <= 1'b1;  rdata <= arp_count                     [32-1: 0]; end
         `OFFSET_ACPPerARP                  : begin ack <= 1'b1;  rdata <= acp_per_arp                   [32-1: 0]; end

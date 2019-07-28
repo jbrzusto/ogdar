@@ -9,6 +9,7 @@
    reg  [32-1: 0] trig_thresh_relax        ; // Trigger Relax Threshold: After a trigger pulse has been detected, the trigger channel ADC value must meet or exceed this value (in direction away from the Trigger Excite Threshold) before a trigger will be detected again.  (Serves to debounce signal in Schmitt trigger style).  -8192...8191
    reg  [32-1: 0] trig_delay               ; // Trigger Delay: How long to wait after trigger is detected before starting to capture samples from the video channel.  The delay is in units of ADC clocks; i.e. the value is multiplied by 8 nanoseconds.
    reg  [32-1: 0] trig_latency             ; // Trigger Latency: how long to wait after trigger relaxation before allowing next excitation.  To further debounce the trigger signal, we can specify a minimum wait time between relaxation and excitation.  0...65535 (which gets multiplied by 8 nanoseconds)
+   wire [32-1: 0] trig_count               ; // Trigger Count: number of trigger pulses detected since last reset
    reg  [32-1: 0] acp_thresh_excite        ; // ACP Excite Threshold: the AC Pulse is detected when the ACP channel value meets or exceeds this value (in direction away from the ACP Relax Threshold).  -2048...2047
    reg  [32-1: 0] acp_thresh_relax         ; // ACP Relax Threshold: After an ACP has been detected, the acp channel ADC value must meet or exceed this value (in direction away from acp_thresh_excite) before an ACP will be detected again.  (Serves to debounce signal in Schmitt trigger style).  -2048...2047
    reg  [32-1: 0] acp_latency              ; // ACP Latency: how long to wait after ACP relaxation before allowing next excitation.  To further debounce the acp signal, we can specify a minimum wait time between relaxation and excitation.  0...1000000 (which gets multiplied by 8 nanoseconds)
@@ -21,7 +22,6 @@
    reg  [64-1: 0] acp_prev_clock           ; // Previous ACP Clock: ADC clock count at previous ACP
    reg  [64-1: 0] arp_clock                ; // ARP Clock: ADC clock count at last ARP
    reg  [64-1: 0] arp_prev_clock           ; // Previous ARP Clock: ADC clock count at previous ARP
-   wire [32-1: 0] trig_count               ; // Trigger Count: number of trigger pulses detected since last reset
    wire [32-1: 0] acp_count                ; // ACP Count: number of Azimuth Count Pulses detected since last reset
    wire [32-1: 0] arp_count                ; // ARP Count: number of Azimuth Return Pulses (rotations) detected since last reset
    reg  [32-1: 0] acp_per_arp              ; // count of ACP between two most recent ARP

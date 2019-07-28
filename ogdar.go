@@ -9,8 +9,8 @@ import (
 
 func main() {
 	Fpga := New()
-//	Fpga.Reset()
 	fmt.Println("Got past New")
+	Fpga.MakeRegMap()
 	fmt.Printf("Clocks is %d\n", Fpga.Clocks)
 	// for _, k := range ControlKeys {
 	// 	if k != "Command" {
