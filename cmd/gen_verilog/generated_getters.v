@@ -38,23 +38,23 @@
         `OFFSET_Clocks_HI                  : begin ack <= 1'b1;  rdata <= clocks                        [64-1:32]; end
         `OFFSET_ACPRaw                     : begin ack <= 1'b1;  rdata <= acp_raw                       [32-1: 0]; end
         `OFFSET_ARPRaw                     : begin ack <= 1'b1;  rdata <= arp_raw                       [32-1: 0]; end
-        `OFFSET_saved_TrigClock_LO         : begin ack <= 1'b1;  rdata <= saved_trig_clock              [32-1: 0]; end
-        `OFFSET_saved_TrigClock_HI         : begin ack <= 1'b1;  rdata <= saved_trig_clock              [64-1:32]; end
-        `OFFSET_saved_TrigPrevClock_LO     : begin ack <= 1'b1;  rdata <= saved_trig_prev_clock         [32-1: 0]; end
-        `OFFSET_saved_TrigPrevClock_HI     : begin ack <= 1'b1;  rdata <= saved_trig_prev_clock         [64-1:32]; end
-        `OFFSET_saved_ACPClock_LO          : begin ack <= 1'b1;  rdata <= saved_acp_clock               [32-1: 0]; end
-        `OFFSET_saved_ACPClock_HI          : begin ack <= 1'b1;  rdata <= saved_acp_clock               [64-1:32]; end
-        `OFFSET_saved_ACPPrevClock_LO      : begin ack <= 1'b1;  rdata <= saved_acp_prev_clock          [32-1: 0]; end
-        `OFFSET_saved_ACPPrevClock_HI      : begin ack <= 1'b1;  rdata <= saved_acp_prev_clock          [64-1:32]; end
-        `OFFSET_saved_ARPClock_LO          : begin ack <= 1'b1;  rdata <= saved_arp_clock               [32-1: 0]; end
-        `OFFSET_saved_ARPClock_HI          : begin ack <= 1'b1;  rdata <= saved_arp_clock               [64-1:32]; end
-        `OFFSET_saved_ARPPrevClock_LO      : begin ack <= 1'b1;  rdata <= saved_arp_prev_clock          [32-1: 0]; end
-        `OFFSET_saved_ARPPrevClock_HI      : begin ack <= 1'b1;  rdata <= saved_arp_prev_clock          [64-1:32]; end
-        `OFFSET_saved_TrigCount            : begin ack <= 1'b1;  rdata <= saved_trig_count              [32-1: 0]; end
-        `OFFSET_saved_ACPCount             : begin ack <= 1'b1;  rdata <= saved_acp_count               [32-1: 0]; end
-        `OFFSET_saved_ARPCount             : begin ack <= 1'b1;  rdata <= saved_arp_count               [32-1: 0]; end
-        `OFFSET_saved_ACPPerARP            : begin ack <= 1'b1;  rdata <= saved_acp_per_arp             [32-1: 0]; end
-        `OFFSET_saved_ADCCounter           : begin ack <= 1'b1;  rdata <= saved_adc_counter             [32-1: 0]; end
-        `OFFSET_saved_ACPAtARP             : begin ack <= 1'b1;  rdata <= saved_acp_at_arp              [32-1: 0]; end
-        `OFFSET_saved_ClockSinceACPAtARP   : begin ack <= 1'b1;  rdata <= saved_clock_since_acp_at_arp  [32-1: 0]; end
-        `OFFSET_saved_TrigAtARP            : begin ack <= 1'b1;  rdata <= saved_trig_at_arp             [32-1: 0]; end
+        `OFFSET_SavedTrigClock_LO          : begin ack <= 1'b1;  rdata <= saved_trig_clock              [32-1: 0]; end
+        `OFFSET_SavedTrigClock_HI          : begin ack <= 1'b1;  rdata <= saved_trig_clock              [64-1:32]; end
+        `OFFSET_SavedTrigPrevClock_LO      : begin ack <= 1'b1;  rdata <= saved_trig_prev_clock         [32-1: 0]; end
+        `OFFSET_SavedTrigPrevClock_HI      : begin ack <= 1'b1;  rdata <= saved_trig_prev_clock         [64-1:32]; end
+        `OFFSET_SavedACPClock_LO           : begin ack <= 1'b1;  rdata <= saved_acp_clock               [32-1: 0]; end
+        `OFFSET_SavedACPClock_HI           : begin ack <= 1'b1;  rdata <= saved_acp_clock               [64-1:32]; end
+        `OFFSET_SavedACPPrevClock_LO       : begin ack <= 1'b1;  rdata <= saved_acp_prev_clock          [32-1: 0]; end
+        `OFFSET_SavedACPPrevClock_HI       : begin ack <= 1'b1;  rdata <= saved_acp_prev_clock          [64-1:32]; end
+        `OFFSET_SavedARPClock_LO           : begin ack <= 1'b1;  rdata <= saved_arp_clock               [32-1: 0]; end
+        `OFFSET_SavedARPClock_HI           : begin ack <= 1'b1;  rdata <= saved_arp_clock               [64-1:32]; end
+        `OFFSET_SavedARPPrevClock_LO       : begin ack <= 1'b1;  rdata <= saved_arp_prev_clock          [32-1: 0]; end
+        `OFFSET_SavedARPPrevClock_HI       : begin ack <= 1'b1;  rdata <= saved_arp_prev_clock          [64-1:32]; end
+        `OFFSET_SavedTrigCount             : begin ack <= 1'b1;  rdata <= saved_trig_count              [32-1: 0]; end
+        `OFFSET_SavedACPCount              : begin ack <= 1'b1;  rdata <= saved_acp_count               [32-1: 0]; end
+        `OFFSET_SavedARPCount              : begin ack <= 1'b1;  rdata <= saved_arp_count               [32-1: 0]; end
+        `OFFSET_SavedACPPerARP             : begin ack <= 1'b1;  rdata <= saved_acp_per_arp             [32-1: 0]; end
+        `OFFSET_SavedADCCounter            : begin ack <= 1'b1;  rdata <= saved_adc_counter             [32-1: 0]; end
+        `OFFSET_SavedACPAtARP              : begin ack <= 1'b1;  rdata <= saved_acp_at_arp              [32-1: 0]; end
+        `OFFSET_SavedClockSinceACPAtARP    : begin ack <= 1'b1;  rdata <= saved_clock_since_acp_at_arp  [32-1: 0]; end
+        `OFFSET_SavedTrigAtARP             : begin ack <= 1'b1;  rdata <= saved_trig_at_arp             [32-1: 0]; end

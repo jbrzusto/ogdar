@@ -8,16 +8,19 @@ import (
 )
 
 func main() {
+	Fpga := New()
+//	Fpga.Reset()
+	fmt.Println("Got past New")
 	fmt.Printf("Clocks is %d\n", Fpga.Clocks)
-	for _, k := range ControlKeys {
-		if k != "Command" {
-			fmt.Printf("%-25s @%p = %d\n", k, ControlMap[k], *ControlMap[k])
-		}
-	}
+	// for _, k := range ControlKeys {
+	// 	if k != "Command" {
+	// 		fmt.Printf("%-25s @%p = %d\n", k, ControlMap[k], *ControlMap[k])
+	// 	}
+	// }
 	fmt.Printf("DecRate is %d\n", Fpga.DecRate)
 	fmt.Printf("TrigThreshRelax is %d\n", Fpga.TrigThreshRelax)
 	tc1 := Fpga.TrigCount
-	fmt.Printf("Clocks is %d\n", Fpga.Clocks)
+	fmt.Printf("Clocks @%p is %d\n", &Fpga.Clocks, Fpga.Clocks)
 	time.Sleep(time.Second)
 	fmt.Printf("Clocks is %d\n", Fpga.Clocks)
 	Fpga.Clocks=12345678

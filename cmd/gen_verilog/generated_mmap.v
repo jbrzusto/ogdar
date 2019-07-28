@@ -39,23 +39,23 @@
 `define OFFSET_Clocks_HI            20'h000094 // high 32-bits
 `define OFFSET_ACPRaw               20'h000098 // most recent slow ADC value from ACP
 `define OFFSET_ARPRaw               20'h00009c // most recent slow ADC value from ARP
-`define OFFSET_saved_TrigClock_LO   20'h0000a0 // low 32-bits: Trigger Clock: ADC clock count at last trigger pulse
-`define OFFSET_saved_TrigClock_HI   20'h0000a4 // high 32-bits
-`define OFFSET_saved_TrigPrevClock_LO 20'h0000a8 // low 32-bits: Previous Trigger Clock: ADC clock count at previous trigger pulse
-`define OFFSET_saved_TrigPrevClock_HI 20'h0000ac // high 32-bits
-`define OFFSET_saved_ACPClock_LO    20'h0000b0 // low 32-bits: ACP Clock: ADC clock count at last ACP
-`define OFFSET_saved_ACPClock_HI    20'h0000b4 // high 32-bits
-`define OFFSET_saved_ACPPrevClock_LO 20'h0000b8 // low 32-bits: Previous ACP Clock: ADC clock count at previous ACP
-`define OFFSET_saved_ACPPrevClock_HI 20'h0000bc // high 32-bits
-`define OFFSET_saved_ARPClock_LO    20'h0000c0 // low 32-bits: ARP Clock: ADC clock count at last ARP
-`define OFFSET_saved_ARPClock_HI    20'h0000c4 // high 32-bits
-`define OFFSET_saved_ARPPrevClock_LO 20'h0000c8 // low 32-bits: Previous ARP Clock: ADC clock count at previous ARP
-`define OFFSET_saved_ARPPrevClock_HI 20'h0000cc // high 32-bits
-`define OFFSET_saved_TrigCount      20'h0000d0 // Trigger Count: number of trigger pulses detected since last reset
-`define OFFSET_saved_ACPCount       20'h0000d4 // ACP Count: number of Azimuth Count Pulses detected since last reset
-`define OFFSET_saved_ARPCount       20'h0000d8 // ARP Count: number of Azimuth Return Pulses (rotations) detected since last reset
-`define OFFSET_saved_ACPPerARP      20'h0000dc // count of ACP between two most recent ARP
-`define OFFSET_saved_ADCCounter     20'h0000e0 // ADC Counter: 14-bit ADC counter used in counting mode
-`define OFFSET_saved_ACPAtARP       20'h0000e4 // ACP at ARP: ACP count at most recent ARP
-`define OFFSET_saved_ClockSinceACPAtARP 20'h0000e8 // ACP Offset at ARP: count of ADC clocks since last ACP, at last ARP
-`define OFFSET_saved_TrigAtARP      20'h0000ec // Trig at ARP: Trigger count at most recent ARP
+`define OFFSET_SavedTrigClock_LO    20'h0000a0 // low 32-bits: Trigger Clock: ADC clock count at last trigger pulse
+`define OFFSET_SavedTrigClock_HI    20'h0000a4 // high 32-bits
+`define OFFSET_SavedTrigPrevClock_LO 20'h0000a8 // low 32-bits: Previous Trigger Clock: ADC clock count at previous trigger pulse
+`define OFFSET_SavedTrigPrevClock_HI 20'h0000ac // high 32-bits
+`define OFFSET_SavedACPClock_LO     20'h0000b0 // low 32-bits: ACP Clock: ADC clock count at last ACP
+`define OFFSET_SavedACPClock_HI     20'h0000b4 // high 32-bits
+`define OFFSET_SavedACPPrevClock_LO 20'h0000b8 // low 32-bits: Previous ACP Clock: ADC clock count at previous ACP
+`define OFFSET_SavedACPPrevClock_HI 20'h0000bc // high 32-bits
+`define OFFSET_SavedARPClock_LO     20'h0000c0 // low 32-bits: ARP Clock: ADC clock count at last ARP
+`define OFFSET_SavedARPClock_HI     20'h0000c4 // high 32-bits
+`define OFFSET_SavedARPPrevClock_LO 20'h0000c8 // low 32-bits: Previous ARP Clock: ADC clock count at previous ARP
+`define OFFSET_SavedARPPrevClock_HI 20'h0000cc // high 32-bits
+`define OFFSET_SavedTrigCount       20'h0000d0 // Trigger Count: number of trigger pulses detected since last reset
+`define OFFSET_SavedACPCount        20'h0000d4 // ACP Count: number of Azimuth Count Pulses detected since last reset
+`define OFFSET_SavedARPCount        20'h0000d8 // ARP Count: number of Azimuth Return Pulses (rotations) detected since last reset
+`define OFFSET_SavedACPPerARP       20'h0000dc // count of ACP between two most recent ARP
+`define OFFSET_SavedADCCounter      20'h0000e0 // ADC Counter: 14-bit ADC counter used in counting mode
+`define OFFSET_SavedACPAtARP        20'h0000e4 // ACP at ARP: ACP count at most recent ARP
+`define OFFSET_SavedClockSinceACPAtARP 20'h0000e8 // ACP Offset at ARP: count of ADC clocks since last ACP, at last ARP
+`define OFFSET_SavedTrigAtARP       20'h0000ec // Trig at ARP: Trigger count at most recent ARP
