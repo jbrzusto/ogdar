@@ -59,3 +59,4 @@
 `define OFFSET_ADCCounter                     20'h0000e0 // ADC Counter: 14-bit ADC counter used in counting mode
 `define OFFSET_ACPRaw                         20'h0000e4 // most recent slow ADC value from ACP
 `define OFFSET_ARPRaw                         20'h0000e8 // most recent slow ADC value from ARP
+`define OFFSET_Status                         20'h0000ec // Status: bit[0]: armed; bit[1]: capturing; bit[2]: fired

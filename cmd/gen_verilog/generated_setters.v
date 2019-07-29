@@ -13,4 +13,4 @@
         `OFFSET_ACPLatency                      : acp_latency                    <= wdata[32-1: 0];
         `OFFSET_ARPThreshExcite                 : arp_thresh_excite              <= wdata[32-1: 0];
         `OFFSET_ARPThreshRelax                  : arp_thresh_relax               <= wdata[32-1: 0];
-        `OFFSET_ARPLatency                      : arp_thresh_latency             <= wdata[32-1: 0];
+        `OFFSET_ARPLatency                      : arp_latency                    <= wdata[32-1: 0];
