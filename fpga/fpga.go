@@ -91,21 +91,7 @@ const (
 	DDOPT_COUNT_MODE                            // return ADC clock count instead of real video samples; for testing
 )
 
-// Control is a block of uint32 read/write FPGA registers that control operation of the digitizer.
-type Control struct {
-}
 
-// Metadata is a block of uint32 read-only FPGA registers that
-// provide metadata derived from radar signals and clocks.  Note:
-// ordered to maintain a packed structure; the first member must be
-// 64-bits wide and any 64-bit members must be separated by an even
-// number (possibly zero) of 32-bit members.
-type Metadata struct {
-}
-
-// Misc are unbuffered miscellaneous registers
-type Misc struct {
-}
 
 // Regs holds all the FPGA registers
 // Note: to prevent creation of gcwritebarriers which cause hangs when using pointers into Regs,
