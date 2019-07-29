@@ -7,8 +7,8 @@
 package buffer
 
 import (
-	"time"
 	"errors"
+	"time"
 	//	"os"
 	//	"syscall"
 	//	"unsafe"
@@ -33,10 +33,11 @@ type DecimRateM1 uint16
 
 // DecimMode is how multiple samples are combined (if at all) when decimating
 type DecimMode uint16
+
 const (
 	DECIM_DECIM DecimMode = iota // the last of every n samples is used; n >= 1
-	DECIM_SUM // the sum of every n consecutive samples is used; n <= 4
-	DECIM_AVG // the average of every n consecutive samples is used; n = 2^m for m = 1, 2, 3, 6, 10, 13, 15
+	DECIM_SUM                    // the sum of every n consecutive samples is used; n <= 4
+	DECIM_AVG                    // the average of every n consecutive samples is used; n = 2^m for m = 1, 2, 3, 6, 10, 13, 15
 )
 
 // ScanlineHdr provides metadata for a Scanline
@@ -60,7 +61,7 @@ type ScanlineHdr struct {
 	TrigCount uint32 // low 32-bits of count of trigger pulses since reset, including those not captured
 	ACPClock  uint32 // bits 31:20 - ACPs since last ACP wraparound; bits 19:0 - ADC clock ticks since last ACP
 	DecimRateM1
-	Extra uint16     // bits 15:14: DecimMode; bits 13:0 skipped clocks before first sample (i.e. additional trigger delay)
+	Extra uint16 // bits 15:14: DecimMode; bits 13:0 skipped clocks before first sample (i.e. additional trigger delay)
 }
 
 // Scanline is a sequence of samples received after one radar pulse
@@ -68,8 +69,8 @@ type ScanlineHdr struct {
 // equivalently, time).  It is bundled with metadata.
 
 type Scanline struct {
-	ScanlineHdr      // metadata
-	Samples []Sample // slice from sample buffer corresponding to
+	ScanlineHdr          // metadata
+	Samples     []Sample // slice from sample buffer corresponding to
 	// samples.  There are two extra  samples stored
 	// in the samplebuffer at the start of each scanline's
 	// samples: a NOT_A_SAMPLE to mark the start of scanline, and
@@ -81,16 +82,16 @@ type Scanline struct {
 
 // Sweep is a sequence of scanlines from a full rotation of the radar antenna.
 type Sweep struct {
-	ARP    uint32    // ARP count since reset at first scanline
-	ts0    time.Time // time of first scanline in sweep
-	tw1    time.Time // time of last scanline in sweep
-	clock  uint32    // base rate of sampling clock, in Hz
-	uniform bool     // does every scanline in this sweep have the same decimation rate and first sample range?
-	n      uint16     // number of scanlines in this sweep (increases as sweep is accumulated)
-	s1 ScanlineHandle // handle for first scanline in this sweep
-	s2 ScanlineHandle // handle for last scanline in this sweep (changes as sweep is accumulated)
-	Lines  []Scanline // scanlines for this sweep
-	Lines2 []Scanline // 2nd contiguous segment of scanlines; empty unless sweep wraps over end of Scanline buffer
+	ARP     uint32         // ARP count since reset at first scanline
+	ts0     time.Time      // time of first scanline in sweep
+	tw1     time.Time      // time of last scanline in sweep
+	clock   uint32         // base rate of sampling clock, in Hz
+	uniform bool           // does every scanline in this sweep have the same decimation rate and first sample range?
+	n       uint16         // number of scanlines in this sweep (increases as sweep is accumulated)
+	s1      ScanlineHandle // handle for first scanline in this sweep
+	s2      ScanlineHandle // handle for last scanline in this sweep (changes as sweep is accumulated)
+	Lines   []Scanline     // scanlines for this sweep
+	Lines2  []Scanline     // 2nd contiguous segment of scanlines; empty unless sweep wraps over end of Scanline buffer
 }
 
 // Amounts of RAM for sample and scanline buffers.
@@ -177,7 +178,7 @@ func (slb *ScanlineBuff) Next(n int, trig uint64) (i int, err error) {
 	return
 }
 
-func (s Scanline) Valid() (bool) {
+func (s Scanline) Valid() bool {
 	return s.Samples[0] == NOT_A_SAMPLE && s.Samples[1] == Sample(s.TrigCount)
 }
 
@@ -193,8 +194,8 @@ type SweepHandle uint32
 // SweepBuffer is a ring buffer of sweeps
 type SweepBuffer struct {
 	Sweeps []Sweep // slice of sweeps
-	i int // index of next slot to fill in Sweeps
-	n int // number of (valid) sweeps in Sweeps
+	i      int     // index of next slot to fill in Sweeps
+	n      int     // number of (valid) sweeps in Sweeps
 }
 
 // Clients can request to be informed of:
