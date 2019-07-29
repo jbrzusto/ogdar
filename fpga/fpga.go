@@ -40,7 +40,7 @@
 package fpga
 
 import (
-	"fmt"
+	// DEBUG:	"fmt"
 	"os"
 	"reflect"
 	"syscall"
@@ -274,7 +274,7 @@ func Init() {
 	if err != nil {
 		goto cleanup
 	}
-	fmt.Printf("Got RegSlice=%v\n", unsafe.Pointer(&regSlice[0]))
+	// DEBUG:	fmt.Printf("Got RegSlice=%v\n", unsafe.Pointer(&regSlice[0]))
 	Regs = (*regs)(unsafe.Pointer(&regSlice[0]))
 	RegsU32 = (*regsU32)(unsafe.Pointer(&regSlice[0]))
 	vidSlice, err = syscall.Mmap(int(memfile.Fd()), BASE_ADDR+CHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
@@ -299,18 +299,17 @@ func Init() {
 	ARPBuf = (*arpBuf)(unsafe.Pointer(&arpSlice[0]))
 	// names of Control registers in a standard order
 	t = reflect.TypeOf(Regs).Elem()
-	fmt.Println("Got typeof *regs")
+	// DEBUG:	fmt.Println("Got typeof *regs")
 	ControlKeys = make([]string, t.NumField())
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		ControlKeys[i] = f.Name
 	}
-	fmt.Println("Got past making ControlKeys")
 	ControlMap = make(map[string]int, len(ControlKeys))
 	for i := 0; i < len(ControlKeys); i++ {
 		ControlMap[ControlKeys[i]] = i
 	}
-	fmt.Println("Got past making ControlMap")
+	// DEBUG:	fmt.Println("Got past making RegKeys/RegMap")
 	return
 cleanup:
 	panic("Unable to set up fpga")
