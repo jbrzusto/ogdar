@@ -393,3 +393,8 @@ func SetNumSamp(n uint32) bool {
 func HasTriggered() bool {
 	return (Regs.TrigSource & TRIG_SRC_MASK) == 0
 }
+
+// GetRegsPointerType returns a reflection object for the non-exported type `regs`
+func GetRegsPointerType() reflect.Type {
+	return reflect.TypeOf(new(*regs))
+}
