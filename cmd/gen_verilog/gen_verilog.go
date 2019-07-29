@@ -102,11 +102,13 @@ func (reg reg) Setter() string {
 // This is similar to writing, except that the value is only stored
 // in the register for a single clock cycle, and then the register is
 // reset to zero.  If the register's mode is not "p", the return value is "".
-// Uses 'wdata' as the data bus and 'addr' as the address bus.
+// Uses 'wdata' as the data bus, 'addr' as the address bus, and 'wen'
+// as the write enable signal.
 func (reg reg) Pulser() string {
 	const (
 		dbus = "wdata"
 		addr = "addr"
+		wen  = "wen"
 	)
 	if reg.mode != "p" {
 		return ""
@@ -115,12 +117,12 @@ func (reg reg) Pulser() string {
 	case reflect.Uint32:
 		fallthrough
 	case reflect.Int32:
-		return fmt.Sprintf("        %s <= {32{%s[19:0] == `OFFSET_%-30s}} & %s[32-1: 0];\n", reg.regname, addr, reg.name, dbus)
+		return fmt.Sprintf("        %s <= {32{%s && %s[19:0] == `OFFSET_%-30s}} & %s[32-1: 0];\n", reg.regname, wen, addr, reg.name, dbus)
 	case reflect.Uint64:
 		fallthrough
 	case reflect.Int64:
-		return fmt.Sprintf("        %s[32-1: 0] <= {32{%s[19:0] == `OFFSET_%-30s}} & %s[32-1: 0];\n", reg.regname, addr, reg.name+"_LO", dbus) +
-			fmt.Sprintf("        %s[64-1:32] <= {32{%s[19:0] == `OFFSET_%-30s}} & %s[32-1: 0];\n", reg.regname, addr, reg.name+"_HI", dbus)
+		return fmt.Sprintf("        %s[32-1: 0] <= {32{%s && %s[19:0] == `OFFSET_%-30s}} & %s[32-1: 0];\n", reg.regname, wen, addr, reg.name+"_LO", dbus) +
+			fmt.Sprintf("        %s[64-1:32] <= {32{%s && %s[19:0] == `OFFSET_%-30s}} & %s[32-1: 0];\n", reg.regname, wen, addr, reg.name+"_HI", dbus)
 	}
 	return ""
 }
