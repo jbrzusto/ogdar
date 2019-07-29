@@ -91,11 +91,30 @@ const (
 	DDOPT_COUNT_MODE                            // return ADC clock count instead of real video samples; for testing
 )
 
+// -------------<Types for FPGA Registers and BRAM>-------------------------------
+//
+// The following types are used only for singleton items stored in the
+// FPGA BRAM, memory which is *not* managed by Go.  So we declare them
+// `notinheap` by using the //go:notinheap pragma to prevent Go from
+// inserting gc memory barrier code, which breaks things.
+//
+// -------------------------------------------------------------------------------
 
+// Regs holds all the FPGA registers.
+//
+//  ** WARNING ** WARNING ** WARNING **
+//
+// This struct must match the FPGA code exactly!  In particular, the
+// order and tags of fields in this struct is **CRITICAL**.  If you
+// change them, you **MUST** re-run gen_verilog, then copy the
+// generated_*.v files to proj/digdar/FPGA/release_1/fpga/code/rtl,
+// and regenerate the FPGA bitstream and boot.bin using Vivado, then
+// install that on the redpitaya/digdar image SD card.
+//
+// As an exception, it *is* safe to change just the 'desc:' component
+// of the field tags.  These descriptions will appear in ogdar's web
+// interface.
 
-// Regs holds all the FPGA registers
-// Note: to prevent creation of gcwritebarriers which cause hangs when using pointers into Regs,
-// we have to use the "go:notinheap" pragma.
 //go:notinheap
 type regs struct {
 	Command uint32 `reg:"command" mode:"p" desc:"Command Register: bit[0]: arm trigger; bit[1]: reset"`
@@ -196,52 +215,48 @@ type regs struct {
 }
 
 // RegsU32 allows access to the registers as an array of uint32
-// It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
 //go:notinheap
 type regsU32 uint32
 
 // VidBuf holds the video (Channel A) samples in the FPGA's BRAM buffer
-// It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
 //go:notinheap
 type vidBuf [SAMPLES_PER_BUFF]uint32
 
 // TrigBuf holds the trigger (Channel B) samples in the FPGA's BRAM buffer
-// It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
 //go:notinheap
 type trigBuf [SAMPLES_PER_BUFF]uint32
 
 // ACPBuf holds the ACP (slow Channel A) samples in the FPGA's BRAM buffer
-// It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
 //go:notinheap
 type acpBuf [SAMPLES_PER_BUFF]uint32
 
 // ARPBuf holds the ARP (slow Channel B) samples in the FPGA's BRAM buffer
-// It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
 //go:notinheap
 type arpBuf [SAMPLES_PER_BUFF]uint32
 
 // regPtr holds a pointer to a (non-heap) FPGA register
-// It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
 //go:notinheap
 type regPtr *uint32
 
+// -------------</ Types for FPGA Registers and BRAM>-----------------------------
+
 // FPGA holds the redpitaya FPGA object.
 var (
-	Regs *regs                     // pointer to reg structure; will be filled in from mmap()
-	RegsU32 *regsU32               // regs as an array of uint32 (pointer to first element, actually)
-	regSlice    []byte             // registers as a byte slice
-	vidSlice    []byte             // video buffer as a byte slice; VidBuf points to vidSlice[0]
-	trigSlice   []byte             // trigger buffer as a byte slice
-	acpSlice    []byte             // ACP buffer as a byte slice
-	arpSlice    []byte             // ARP buffer as a byte slice
-	VidBuf      *vidBuf                  // video sample buffer; these are the radar "data"
-	TrigBuf     *trigBuf                  // trigger sample buffer; used when configuring digitizer
-	ARPBuf      *arpBuf                  // ARP sample buffer; used when configuring digitizer
-	ACPBuf      *acpBuf                  // ACP sample buffer; used when configuring digitizer
-	memfile     *os.File           // pointer to open file /dev/mem for mmaping registers
-	ControlMap  map[string]int // controlMap translates between names of control parameters and indexes to them.
-	ControlKeys []string           // controlKeys is a slice of keys to ControlMap, sorted in storage order
-
+	Regs      *regs          // pointer to reg structure; will be filled in from mmap()
+	RegsU32   *regsU32       // regs as an array of uint32 (pointer to first element, actually)
+	regSlice  []byte         // registers as a byte slice
+	vidSlice  []byte         // video buffer as a byte slice; VidBuf points to vidSlice[0]
+	trigSlice []byte         // trigger buffer as a byte slice
+	acpSlice  []byte         // ACP buffer as a byte slice
+	arpSlice  []byte         // ARP buffer as a byte slice
+	VidBuf    *vidBuf        // video sample buffer; these are the radar "data"
+	TrigBuf   *trigBuf       // trigger sample buffer; used when configuring digitizer
+	ARPBuf    *arpBuf        // ARP sample buffer; used when configuring digitizer
+	ACPBuf    *acpBuf        // ACP sample buffer; used when configuring digitizer
+	memfile   *os.File       // pointer to open file /dev/mem for mmaping registers
+	RegMap    map[string]int // RegMap translates from the name of a parameter to its index in storage order (i.e. index in RegKeys)
+	RegKeys   []string       // RegKeys is a slice of names of registers (keys to RegMap), sorted in storage order
+	RegIndex  []uintptr      // RegIndex is a slice of indexes (into RegsU32) of the FPGA registers in storage order
 )
 
 // GetRegByIndex returns the uint32 value of a register, given its index
