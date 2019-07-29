@@ -151,7 +151,7 @@ type regs struct {
 
 	ARPThreshRelax uint32 `reg:"arp_thresh_relax" mode:"rw" desc:"ARP Relax Threshold: After an ARP has been detected, the acp channel ADC value must meet or exceed this value (in direction away from arp_thresh_excite) before an ARP will be detected again.  (Serves to debounce signal in Schmitt trigger style).  -2048..2047"`
 
-	ARPLatency uint32 `reg:"arp_thresh_latency" mode:"rw" desc:"ARP Latency: how long to wait after ARP relaxation before allowing next excitation.  To further debounce the acp signal, we can specify a minimum wait time between relaxation and excitation.  0...1000000 (which gets multiplied by 8 nanoseconds)"`
+	ARPLatency uint32 `reg:"arp_latency" mode:"rw" desc:"ARP Latency: how long to wait after ARP relaxation before allowing next excitation.  To further debounce the acp signal, we can specify a minimum wait time between relaxation and excitation.  0...1000000 (which gets multiplied by 8 nanoseconds)"`
 
 	TrigClock uint64 `reg:"trig_clock" mode:"r" desc:"Trigger Clock: ADC clock count at last trigger pulse"`
 
