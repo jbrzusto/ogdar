@@ -107,7 +107,9 @@ type Misc struct {
 }
 
 // Regs holds all the FPGA registers
-// ; Note: we
+// Note: to prevent creation of gcwritebarriers which cause hangs when using pointers into Regs,
+// we have to use the "go:notinheap" pragma.
+//go:notinheap
 type Regs struct {
 	Command uint32 `reg:"command" mode:"p" desc:"Command Register: bit[0]: arm trigger; bit[1]: reset"`
 
@@ -206,21 +208,47 @@ type Regs struct {
 	SavedTrigAtARP uint32 `reg:"saved_trig_at_arp" mode:"r" desc:"Trig at ARP: Trigger count at most recent ARP"`
 }
 
+// RegsU32 allows access to the registers as an array of uint32
+// It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
+//go:notinheap
+type RegsU32 [64]uint32
+
+// VidBuf holds the video (Channel A) samples in the FPGA's BRAM buffer
+// It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
+//go:notinheap
+type VidBuf [SAMPLES_PER_BUFF]uint32
+
+// TrigBuf holds the trigger (Channel B) samples in the FPGA's BRAM buffer
+// It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
+//go:notinheap
+type TrigBuf [SAMPLES_PER_BUFF]uint32
+
+// ACPBuf holds the ACP (slow Channel A) samples in the FPGA's BRAM buffer
+// It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
+//go:notinheap
+type ACPBuf [SAMPLES_PER_BUFF]uint32
+
+// ARPBuf holds the ARP (slow Channel B) samples in the FPGA's BRAM buffer
+// It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
+//go:notinheap
+type ARPBuf [SAMPLES_PER_BUFF]uint32
+
 // FPGA holds the redpitaya FPGA object.
 type FPGA struct {
-	*Regs                               // pointer to reg structure; will be filled in from mmap()
-	RegSlice  []byte                    // registers as a byte slice
-	vidSlice  []byte                    // video buffer as a byte slice; VidBuf points to vidSlice[0]
-	trigSlice []byte                    // trigger buffer as a byte slice
-	acpSlice  []byte                    // ACP buffer as a byte slice
-	arpSlice  []byte                    // ARP buffer as a byte slice
-	VidBuf    *[SAMPLES_PER_BUFF]uint32 // video sample buffer; these are the radar "data"
-	TrigBuf   *[SAMPLES_PER_BUFF]uint32 // trigger sample buffer; used when configuring digitizer
-	ARPBuf    *[SAMPLES_PER_BUFF]uint32 // ARP sample buffer; used when configuring digitizer
-	ACPBuf    *[SAMPLES_PER_BUFF]uint32 // ACP sample buffer; used when configuring digitizer
-	memfile   *os.File                  // pointer to open file /dev/mem for mmaping registers
-	ControlMap map[string]*uint32 // controlMap translates between names of control parameters and pointers to them.
-	ControlKeys []string 	// controlKeys is a slice of keys to ControlMap, sorted in storage order
+	*Regs                          // pointer to reg structure; will be filled in from mmap()
+	*RegsU32                       // regs as an array of uint32
+	RegSlice    []byte             // registers as a byte slice
+	vidSlice    []byte             // video buffer as a byte slice; VidBuf points to vidSlice[0]
+	trigSlice   []byte             // trigger buffer as a byte slice
+	acpSlice    []byte             // ACP buffer as a byte slice
+	arpSlice    []byte             // ARP buffer as a byte slice
+	*VidBuf                        // video sample buffer; these are the radar "data"
+	*TrigBuf                       // trigger sample buffer; used when configuring digitizer
+	*ARPBuf                        // ARP sample buffer; used when configuring digitizer
+	*ACPBuf                        // ACP sample buffer; used when configuring digitizer
+	memfile     *os.File           // pointer to open file /dev/mem for mmaping registers
+	ControlMap  map[string]*uint32 // controlMap translates between names of control parameters and pointers to them.
+	ControlKeys []string           // controlKeys is a slice of keys to ControlMap, sorted in storage order
 
 }
 
@@ -273,7 +301,7 @@ type FPGA struct {
 // 		"DecRate",
 // 		"Options",
 // 		"TrigThreshExcite",
-// 		"TrigThreshRelax",
+// "TrigThreshRelax",
 // 		"TrigDelay",
 // 		"TrigLatency",
 // 		"ACPThreshExcite",
@@ -317,30 +345,30 @@ func New() (fpga *FPGA) {
 	}
 	fmt.Printf("Got RegSlice=%v\n", unsafe.Pointer(&fpga.RegSlice[0]))
 	fpga.Regs = (*Regs)(unsafe.Pointer(&fpga.RegSlice[0]))
-	fmt.Println("Got past assigning Regs")
+	fpga.RegsU32 = (*RegsU32)(unsafe.Pointer(&fpga.RegSlice[0]))
 	fpga.vidSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR+CHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
 	}
-	fpga.VidBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.vidSlice[0]))
+	fpga.VidBuf = (*VidBuf)(unsafe.Pointer(&fpga.vidSlice[0]))
 	fpga.trigSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR+CHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
 	}
-	fpga.TrigBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.trigSlice[0]))
+	fpga.TrigBuf = (*TrigBuf)(unsafe.Pointer(&fpga.trigSlice[0]))
 	fpga.acpSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR+XCHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
 	}
-	fpga.ACPBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.acpSlice[0]))
+	fpga.ACPBuf = (*ACPBuf)(unsafe.Pointer(&fpga.acpSlice[0]))
 	fpga.arpSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR+XCHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
 	}
-	fpga.ARPBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&fpga.arpSlice[0]))
+	fpga.ARPBuf = (*ARPBuf)(unsafe.Pointer(&fpga.arpSlice[0]))
 	// names of Control registers in a standard order
 	fpga.ControlKeys = []string{
-		"Command",
+//		"Command",
 		"TrigSource",
 		"NumSamp",
 		"DecRate",
@@ -357,32 +385,28 @@ func New() (fpga *FPGA) {
 		"ARPLatency",
 	}
 	fmt.Println("Got past making ControlKeys")
-
+	// fpga.ControlMap = map[string]*uint32{
+	// 	"Command":          &fpga.Command,
+	// 	"TrigSource":       &fpga.TrigSource,
+	// 	"NumSamp":          &fpga.NumSamp,
+	// 	"DecRate":          &fpga.DecRate,
+	// 	"Options":          &fpga.Options,
+	// 	"TrigThreshExcite": &fpga.TrigThreshExcite,
+	// 	"TrigThreshRelax":  &fpga.TrigThreshRelax,
+	// 	"TrigDelay":        &fpga.TrigDelay,
+	// 	"TrigLatency":      &fpga.TrigLatency,
+	// 	"ACPThreshExcite":  &fpga.ACPThreshExcite,
+	// 	"ACPThreshRelax":   &fpga.ACPThreshRelax,
+	// 	"ACPLatency":       &fpga.ACPLatency,
+	// 	"ARPThreshExcite":  &fpga.ARPThreshExcite,
+	// 	"ARPThreshRelax":   &fpga.ARPThreshRelax,
+	// 	"ARPLatency":       &fpga.ARPLatency,
+	// }
+	fmt.Println("Got past making ControlMap")
 	return fpga
 cleanup:
 	fpga.Close()
 	return nil
-}
-
-func (fpga *FPGA) MakeRegMap() {
-	fpga.ControlMap = map[string]*uint32 {
-		"Command":          &fpga.Command,
-		"TrigSource":       &fpga.TrigSource,
-		"NumSamp":          &fpga.NumSamp,
-		"DecRate":          &fpga.DecRate,
-		"Options":          &fpga.Options,
-		"TrigThreshExcite": &fpga.TrigThreshExcite,
-		"TrigThreshRelax":  &fpga.TrigThreshRelax,
-		"TrigDelay":        &fpga.TrigDelay,
-		"TrigLatency":      &fpga.TrigLatency,
-		"ACPThreshExcite":  &fpga.ACPThreshExcite,
-		"ACPThreshRelax":   &fpga.ACPThreshRelax,
-		"ACPLatency":       &fpga.ACPLatency,
-		"ARPThreshExcite":  &fpga.ARPThreshExcite,
-		"ARPThreshRelax":   &fpga.ARPThreshRelax,
-		"ARPLatency":       &fpga.ARPLatency,
-	}
-	fmt.Println("Got past making ControlMap")
 }
 
 // Close frees Fpga resources.  NB: when would this ever be needed??

@@ -5,20 +5,20 @@ import (
 	. "github.com/jbrzusto/ogdar/fpga"
 	. "github.com/jbrzusto/ogdar/buffer"
 	"time"
+//	"unsafe"
 )
 
 func main() {
 	Fpga := New()
 	fmt.Println("Got past New")
-	Fpga.MakeRegMap()
 	fmt.Printf("Clocks is %d\n", Fpga.Clocks)
-	// for _, k := range ControlKeys {
-	// 	if k != "Command" {
-	// 		fmt.Printf("%-25s @%p = %d\n", k, ControlMap[k], *ControlMap[k])
-	// 	}
-	// }
-	fmt.Printf("DecRate is %d\n", Fpga.DecRate)
-	fmt.Printf("TrigThreshRelax is %d\n", Fpga.TrigThreshRelax)
+	for i, k := range Fpga.ControlKeys {
+		if i != 0 {
+			fmt.Printf("%-25s: %d\n", k, Fpga.RegsU32[i])
+		}
+	}
+	fmt.Printf("DecRate @%p is %d\n", &Fpga.DecRate, Fpga.DecRate)
+	fmt.Printf("TrigThreshRelax @%p is %d\n", &Fpga.TrigThreshRelax, Fpga.TrigThreshRelax)
 	tc1 := Fpga.TrigCount
 	fmt.Printf("Clocks @%p is %d\n", &Fpga.Clocks, Fpga.Clocks)
 	time.Sleep(time.Second)
