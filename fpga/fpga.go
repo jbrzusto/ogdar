@@ -59,7 +59,7 @@ const (
 	SIG_LEN                = SAMPLES_PER_BUFF     // Size of data buffer into which input signal is captured , must be 2^n!
 	CMD_ARM_BIT            = 1                    // Bit index in FPGA Command register for arming the trigger
 	CMD_RST_BIT            = 2                    // Bit index in FPGA Command register for resetting write state machine
-	TRIG_SRC_MASK          = 0x0000000f           // Bit mask in the trigger_source register for depicting the trigger source type.
+	TRIG_SRC_TRIG_MASK     = 0xff                 // Bit mask in the trigger_source register for depicting the trigger source type.
 	CHA_OFFSET             = 0x10000              // Offset to the memory buffer where signal on channel A is captured.
 	CHB_OFFSET             = 0x20000              // Offset to the memory buffer where signal on channel B is captured.
 	XCHA_OFFSET            = 0x30000              // Offset to the memory buffer where signal on slow channel A is captured.
@@ -70,7 +70,7 @@ const (
 	BPS_ACP                = 12                   // bits per sample, ACP channel sample (slow ADC B)
 )
 
-// TrigType enumerates sources for a trigger
+// TrigType enumerates sources for a trigger, and flags for Armed (bit 8) and Fired (bit 9)
 type TrigType uint32
 
 const (
@@ -79,6 +79,15 @@ const (
 	TRG_TRIG               // pulse on radar trigger channel
 	TRG_ACP                // pulse on radar ACP channel
 	TRG_ARP                // pulse on radar ARP channel
+)
+
+// Status are flags for FPGA status
+type Status uint32
+
+const (
+	STATUS_ARMED     Status = 1 << iota // FPGA is ready to detect a trigger and begin capturing
+	STATUS_CAPTURING                    // FPGA detected a trigger and is capturing
+	STATUS_FIRED                        // FPGA detected a trigger and has finished capturing
 )
 
 // DigdarOption is a set of bit flags for the field OscFPGARegMem.Options
@@ -212,6 +221,8 @@ type regs struct {
 	ACPRaw uint32 `reg:"acp_raw" mode:"r" desc:"most recent slow ADC value from ACP"`
 
 	ARPRaw uint32 `reg:"arp_raw" mode:"r" desc:"most recent slow ADC value from ARP"`
+
+	Status uint32 `reg:"status" mode:"r" desc:"Status: bit[0]: armed; bit[1]: capturing; bit[2]: fired"`
 }
 
 // RegsU32 allows access to the registers as an array of uint32
@@ -430,13 +441,10 @@ func SetNumSamp(n uint32) bool {
 	return true
 }
 
-// HasTriggered checks whether the Fpga has received a trigger and completed sample acquisition
+// HasFired checks whether the Fpga has received a trigger and completed sample acquisition
 // since the last call to Arm().
-//
-// Note: if called before the first call to Arm(), returns true
-// even though there are no data available in the buffer.
-func HasTriggered() bool {
-	return (Regs.TrigSource & TRIG_SRC_MASK) == 0
+func HasFired() bool {
+	return (Regs.Status & uint32(STATUS_FIRED)) == 0
 }
 
 // GetRegsPointerType returns a reflection object for the non-exported type `regs`
