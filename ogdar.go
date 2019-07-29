@@ -10,22 +10,27 @@ import (
 
 func main() {
 	Init()
-	fmt.Println("Got past New")
+	Reset()
 	fmt.Printf("Clocks is %d\n", Regs.Clocks)
-	for i, k := range ControlKeys {
+	for i := 1; i < NumRegs(); i++ {
 		if i != 0 {
-			n, _ := GetRegByName(k)
-			fmt.Printf("%-25s: %d\n", k, n)
+			n, _ := GetRegByIndex(i)
+			fmt.Printf("%-25s: %x\n", RegName(i), n)
 		}
 	}
-	fmt.Printf("DecRate @%p is %d\n", &Regs.DecRate, Regs.DecRate)
-	fmt.Printf("TrigThreshRelax @%p is %d\n", &Regs.TrigThreshRelax, Regs.TrigThreshRelax)
+	fmt.Printf("DecRate @%p is %x\n", &Regs.DecRate, Regs.DecRate)
+	ttr, _ := GetRegByName("TrigThreshRelax")
+	fmt.Printf("TrigThreshRelax @%p is %x or via RegsU32 %x\n", &Regs.TrigThreshRelax, Regs.TrigThreshRelax, ttr )
+	Regs.TrigThreshRelax = 0x5678
+	SetRegByName("TrigThreshRelax", 0x5678)
+	ttr, _ = GetRegByName("TrigThreshRelax")
+	fmt.Printf("TrigThreshRelax @%p is %x or via RegsU32 %x\n", &Regs.TrigThreshRelax, Regs.TrigThreshRelax, ttr )
 	tc1 := Regs.TrigCount
 	arp, _ := GetRegByName("ARPRaw")
-	fmt.Printf("Clocks @%p is %d, ARPRaw is %d, TrigAtARP=%d\n", &Regs.Clocks, Regs.Clocks, arp, Regs.TrigAtARP)
+	fmt.Printf("Clocks @%p is %d, ARPRaw is %x, TrigAtARP=%d\n", &Regs.Clocks, Regs.Clocks, arp, Regs.TrigAtARP)
 	time.Sleep(time.Second)
 	arp, _ = GetRegByName("ARPRaw")
-	fmt.Printf("Clocks @%p is %d, ARPRaw is %d, TrigAtARP=%d\n", &Regs.Clocks, Regs.Clocks, arp, Regs.TrigAtARP)
+	fmt.Printf("Clocks @%p is %d, ARPRaw is %x, TrigAtARP=%d\n", &Regs.Clocks, Regs.Clocks, arp, Regs.TrigAtARP)
 	fmt.Printf("Clocks is %d\n", Regs.Clocks)
 	tc2 := Regs.TrigCount
 	fmt.Printf("ARP count: %d\nACP per ARP: %d\nPRF: %d\n", Regs.ARPCount, Regs.ACPPerARP, tc2 - tc1)
