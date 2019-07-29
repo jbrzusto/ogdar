@@ -25,13 +25,10 @@
    wire [32-1: 0] acp_count                ; // ACP Count: number of Azimuth Count Pulses detected since last reset
    wire [32-1: 0] arp_count                ; // ARP Count: number of Azimuth Return Pulses (rotations) detected since last reset
    reg  [32-1: 0] acp_per_arp              ; // count of ACP between two most recent ARP
-   reg  [32-1: 0] adc_counter              ; // ADC Counter: 14-bit ADC counter used in counting mode
    reg  [32-1: 0] acp_at_arp               ; // ACP at ARP: ACP count at most recent ARP
    reg  [32-1: 0] clock_since_acp_at_arp   ; // ACP Offset at ARP: count of ADC clocks since last ACP, at last ARP
    reg  [32-1: 0] trig_at_arp              ; // Trig at ARP: Trigger count at most recent ARP
    reg  [64-1: 0] clocks                   ; // clocks: 64-bit count of ADC clock ticks since reset
-   reg  [32-1: 0] acp_raw                  ; // most recent slow ADC value from ACP
-   reg  [32-1: 0] arp_raw                  ; // most recent slow ADC value from ARP
    reg  [64-1: 0] saved_trig_clock         ; // Trigger Clock: ADC clock count at last trigger pulse
    reg  [64-1: 0] saved_trig_prev_clock    ; // Previous Trigger Clock: ADC clock count at previous trigger pulse
    reg  [64-1: 0] saved_acp_clock          ; // ACP Clock: ADC clock count at last ACP
@@ -46,3 +43,6 @@
    reg  [32-1: 0] saved_acp_at_arp         ; // ACP at ARP: ACP count at most recent ARP
    reg  [32-1: 0] saved_clock_since_acp_at_arp; // ACP Offset at ARP: count of ADC clocks since last ACP, at last ARP
    reg  [32-1: 0] saved_trig_at_arp        ; // Trig at ARP: Trigger count at most recent ARP
+   reg  [32-1: 0] adc_counter              ; // ADC Counter: 14-bit ADC counter used in counting mode
+   reg  [32-1: 0] acp_raw                  ; // most recent slow ADC value from ACP
+   reg  [32-1: 0] arp_raw                  ; // most recent slow ADC value from ARP

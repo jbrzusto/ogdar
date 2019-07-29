@@ -30,14 +30,11 @@
         `OFFSET_ACPCount                   : begin ack <= 1'b1;  rdata <= acp_count                     [32-1: 0]; end
         `OFFSET_ARPCount                   : begin ack <= 1'b1;  rdata <= arp_count                     [32-1: 0]; end
         `OFFSET_ACPPerARP                  : begin ack <= 1'b1;  rdata <= acp_per_arp                   [32-1: 0]; end
-        `OFFSET_ADCCounter                 : begin ack <= 1'b1;  rdata <= adc_counter                   [32-1: 0]; end
         `OFFSET_ACPAtARP                   : begin ack <= 1'b1;  rdata <= acp_at_arp                    [32-1: 0]; end
         `OFFSET_ClockSinceACPAtARP         : begin ack <= 1'b1;  rdata <= clock_since_acp_at_arp        [32-1: 0]; end
         `OFFSET_TrigAtARP                  : begin ack <= 1'b1;  rdata <= trig_at_arp                   [32-1: 0]; end
         `OFFSET_Clocks_LO                  : begin ack <= 1'b1;  rdata <= clocks                        [32-1: 0]; end
         `OFFSET_Clocks_HI                  : begin ack <= 1'b1;  rdata <= clocks                        [64-1:32]; end
-        `OFFSET_ACPRaw                     : begin ack <= 1'b1;  rdata <= acp_raw                       [32-1: 0]; end
-        `OFFSET_ARPRaw                     : begin ack <= 1'b1;  rdata <= arp_raw                       [32-1: 0]; end
         `OFFSET_SavedTrigClock_LO          : begin ack <= 1'b1;  rdata <= saved_trig_clock              [32-1: 0]; end
         `OFFSET_SavedTrigClock_HI          : begin ack <= 1'b1;  rdata <= saved_trig_clock              [64-1:32]; end
         `OFFSET_SavedTrigPrevClock_LO      : begin ack <= 1'b1;  rdata <= saved_trig_prev_clock         [32-1: 0]; end
@@ -58,3 +55,6 @@
         `OFFSET_SavedACPAtARP              : begin ack <= 1'b1;  rdata <= saved_acp_at_arp              [32-1: 0]; end
         `OFFSET_SavedClockSinceACPAtARP    : begin ack <= 1'b1;  rdata <= saved_clock_since_acp_at_arp  [32-1: 0]; end
         `OFFSET_SavedTrigAtARP             : begin ack <= 1'b1;  rdata <= saved_trig_at_arp             [32-1: 0]; end
+        `OFFSET_ADCCounter                 : begin ack <= 1'b1;  rdata <= adc_counter                   [32-1: 0]; end
+        `OFFSET_ACPRaw                     : begin ack <= 1'b1;  rdata <= acp_raw                       [32-1: 0]; end
+        `OFFSET_ARPRaw                     : begin ack <= 1'b1;  rdata <= arp_raw                       [32-1: 0]; end
