@@ -260,22 +260,56 @@ var (
 )
 
 // GetRegByIndex returns the uint32 value of a register, given its index
+// second return value is true on success
 func GetRegByIndex(i int) (uint32, bool) {
-	if i < 0 || i >= len(ControlMap) {
+	if i < 0 || i >= len(RegMap) {
 		return 0, false
 	}
-	return *((*uint32)(unsafe.Pointer(uintptr(unsafe.Pointer(RegsU32))+uintptr(4*i)))), true
+	return *((*uint32)(unsafe.Pointer(uintptr(unsafe.Pointer(RegsU32)) + RegIndex[i]))), true
 }
 
 // GetRegByName returns the uint32 value of a register, given its name
+// second return value is true on success
 func GetRegByName(x string) (uint32, bool) {
-	i, ok := ControlMap[x]
-	if ! ok {
+	i, ok := RegMap[x]
+	if !ok {
 		return 0, false
 	}
 	return GetRegByIndex(i)
 }
 
+// SetRegByIndex sets the value of a register, given its index
+// second return value is true on success
+func SetRegByIndex(i int, v uint32) bool {
+	if i < 0 || i >= len(RegMap) {
+		return false
+	}
+	*((*uint32)(unsafe.Pointer(uintptr(unsafe.Pointer(RegsU32)) + RegIndex[i]))) = v
+	return true
+}
+
+// SetRegByName sets the value of a register, given its name
+// second return value is true on success
+func SetRegByName(x string, v uint32) bool {
+	i, ok := RegMap[x]
+	if !ok {
+		return false
+	}
+	return SetRegByIndex(i, v)
+}
+
+// NumRegs returns the number of defined FPGA registers; not all are readable and/or writable
+func NumRegs() int {
+	return len(RegMap)
+}
+
+// RegName returns the name of the ith register.
+func RegName(i int) string {
+	if i < 0 || i >= len(RegKeys) {
+		return ""
+	}
+	return RegKeys[i]
+}
 
 // Open sets up pointers to Fpga memory-mapped registers and allocates buffers.
 func Init() {
@@ -315,14 +349,25 @@ func Init() {
 	// names of Control registers in a standard order
 	t = reflect.TypeOf(Regs).Elem()
 	// DEBUG:	fmt.Println("Got typeof *regs")
-	ControlKeys = make([]string, t.NumField())
+	RegKeys = make([]string, 0, t.NumField())
+	RegMap = make(map[string]int, t.NumField())
+	RegIndex = make([]uintptr, 0, t.NumField())
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		ControlKeys[i] = f.Name
-	}
-	ControlMap = make(map[string]int, len(ControlKeys))
-	for i := 0; i < len(ControlKeys); i++ {
-		ControlMap[ControlKeys[i]] = i
+		switch f.Type.Size() {
+		case 4:
+			RegKeys = append(RegKeys, f.Name)
+			RegMap[f.Name] = len(RegIndex)
+			RegIndex = append(RegIndex, f.Offset)
+		case 8:
+			RegKeys = append(RegKeys, f.Name+"_lo", f.Name+"_hi")
+			RegMap[f.Name+"_lo"] = len(RegIndex)
+			RegIndex = append(RegIndex, f.Offset)
+			RegMap[f.Name+"_hi"] = len(RegIndex)
+			RegIndex = append(RegIndex, f.Offset+4)
+		default:
+			panic("unhandled field size in fpga.regs")
+		}
 	}
 	// DEBUG:	fmt.Println("Got past making RegKeys/RegMap")
 	return
