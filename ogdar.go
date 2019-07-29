@@ -9,25 +9,26 @@ import (
 )
 
 func main() {
-	Fpga := New()
+	Init()
 	fmt.Println("Got past New")
-	fmt.Printf("Clocks is %d\n", Fpga.Clocks)
-	for i, k := range Fpga.ControlKeys {
+	fmt.Printf("Clocks is %d\n", Regs.Clocks)
+	for i, k := range ControlKeys {
 		if i != 0 {
-			fmt.Printf("%-25s: %d\n", k, Fpga.RegsU32[i])
+			n, _ := GetRegByName(k)
+			fmt.Printf("%-25s: %d\n", k, n)
 		}
 	}
-	fmt.Printf("DecRate @%p is %d\n", &Fpga.DecRate, Fpga.DecRate)
-	fmt.Printf("TrigThreshRelax @%p is %d\n", &Fpga.TrigThreshRelax, Fpga.TrigThreshRelax)
-	tc1 := Fpga.TrigCount
-	fmt.Printf("Clocks @%p is %d\n", &Fpga.Clocks, Fpga.Clocks)
+	fmt.Printf("DecRate @%p is %d\n", &Regs.DecRate, Regs.DecRate)
+	fmt.Printf("TrigThreshRelax @%p is %d\n", &Regs.TrigThreshRelax, Regs.TrigThreshRelax)
+	tc1 := Regs.TrigCount
+	arp, _ := GetRegByName("ARPRaw")
+	fmt.Printf("Clocks @%p is %d, ARPRaw is %d, TrigAtARP=%d\n", &Regs.Clocks, Regs.Clocks, arp, Regs.TrigAtARP)
 	time.Sleep(time.Second)
-	fmt.Printf("Clocks is %d\n", Fpga.Clocks)
-	Fpga.Clocks=12345678
-	fmt.Printf("Clocks is %d\n", Fpga.Clocks)
-	tc2 := Fpga.TrigCount
-	fmt.Printf("ARP count: %d\nACP per ARP: %d\nPRF: %d\n", Fpga.ARPCount, Fpga.ACPPerARP, tc2 - tc1)
+	arp, _ = GetRegByName("ARPRaw")
+	fmt.Printf("Clocks @%p is %d, ARPRaw is %d, TrigAtARP=%d\n", &Regs.Clocks, Regs.Clocks, arp, Regs.TrigAtARP)
+	fmt.Printf("Clocks is %d\n", Regs.Clocks)
+	tc2 := Regs.TrigCount
+	fmt.Printf("ARP count: %d\nACP per ARP: %d\nPRF: %d\n", Regs.ARPCount, Regs.ACPPerARP, tc2 - tc1)
 	buffer := SampleBuff{}
 	fmt.Printf("Length of buffer is %d\n", len(buffer.SampBuff))
-
 }

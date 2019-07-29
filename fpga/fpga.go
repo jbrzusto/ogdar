@@ -42,6 +42,7 @@ package fpga
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"syscall"
 	"unsafe"
 )
@@ -110,7 +111,7 @@ type Misc struct {
 // Note: to prevent creation of gcwritebarriers which cause hangs when using pointers into Regs,
 // we have to use the "go:notinheap" pragma.
 //go:notinheap
-type Regs struct {
+type regs struct {
 	Command uint32 `reg:"command" mode:"p" desc:"Command Register: bit[0]: arm trigger; bit[1]: reset"`
 
 	TrigSource uint32 `reg:"trig_source" mode:"rw" desc:"Trigger source: 0: don't trigger; 1: trigger immediately upon arming; 2: radar trigger pulse; 3: ACP pulse; 4: ARP pulse"`
@@ -211,256 +212,176 @@ type Regs struct {
 // RegsU32 allows access to the registers as an array of uint32
 // It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
 //go:notinheap
-type RegsU32 [64]uint32
+type regsU32 uint32
 
 // VidBuf holds the video (Channel A) samples in the FPGA's BRAM buffer
 // It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
 //go:notinheap
-type VidBuf [SAMPLES_PER_BUFF]uint32
+type vidBuf [SAMPLES_PER_BUFF]uint32
 
 // TrigBuf holds the trigger (Channel B) samples in the FPGA's BRAM buffer
 // It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
 //go:notinheap
-type TrigBuf [SAMPLES_PER_BUFF]uint32
+type trigBuf [SAMPLES_PER_BUFF]uint32
 
 // ACPBuf holds the ACP (slow Channel A) samples in the FPGA's BRAM buffer
 // It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
 //go:notinheap
-type ACPBuf [SAMPLES_PER_BUFF]uint32
+type acpBuf [SAMPLES_PER_BUFF]uint32
 
 // ARPBuf holds the ARP (slow Channel B) samples in the FPGA's BRAM buffer
 // It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
 //go:notinheap
-type ARPBuf [SAMPLES_PER_BUFF]uint32
+type arpBuf [SAMPLES_PER_BUFF]uint32
+
+// regPtr holds a pointer to a (non-heap) FPGA register
+// It must be declared with pragma :notinheap to prevent gcwritebarrier interference.
+//go:notinheap
+type regPtr *uint32
 
 // FPGA holds the redpitaya FPGA object.
-type FPGA struct {
-	*Regs                          // pointer to reg structure; will be filled in from mmap()
-	*RegsU32                       // regs as an array of uint32
-	RegSlice    []byte             // registers as a byte slice
+var (
+	Regs *regs                     // pointer to reg structure; will be filled in from mmap()
+	RegsU32 *regsU32               // regs as an array of uint32 (pointer to first element, actually)
+	regSlice    []byte             // registers as a byte slice
 	vidSlice    []byte             // video buffer as a byte slice; VidBuf points to vidSlice[0]
 	trigSlice   []byte             // trigger buffer as a byte slice
 	acpSlice    []byte             // ACP buffer as a byte slice
 	arpSlice    []byte             // ARP buffer as a byte slice
-	*VidBuf                        // video sample buffer; these are the radar "data"
-	*TrigBuf                       // trigger sample buffer; used when configuring digitizer
-	*ARPBuf                        // ARP sample buffer; used when configuring digitizer
-	*ACPBuf                        // ACP sample buffer; used when configuring digitizer
+	VidBuf      *vidBuf                  // video sample buffer; these are the radar "data"
+	TrigBuf     *trigBuf                  // trigger sample buffer; used when configuring digitizer
+	ARPBuf      *arpBuf                  // ARP sample buffer; used when configuring digitizer
+	ACPBuf      *acpBuf                  // ACP sample buffer; used when configuring digitizer
 	memfile     *os.File           // pointer to open file /dev/mem for mmaping registers
-	ControlMap  map[string]*uint32 // controlMap translates between names of control parameters and pointers to them.
+	ControlMap  map[string]int // controlMap translates between names of control parameters and indexes to them.
 	ControlKeys []string           // controlKeys is a slice of keys to ControlMap, sorted in storage order
 
+)
+
+// GetRegByIndex returns the uint32 value of a register, given its index
+func GetRegByIndex(i int) (uint32, bool) {
+	if i < 0 || i >= len(ControlMap) {
+		return 0, false
+	}
+	return *((*uint32)(unsafe.Pointer(uintptr(unsafe.Pointer(RegsU32))+uintptr(4*i)))), true
 }
 
-// initialize the FPGA and ControlMap, but *not* at package load time
-// because that will fail on all but the redpitaya with appropriate FPGA build!
+// GetRegByName returns the uint32 value of a register, given its name
+func GetRegByName(x string) (uint32, bool) {
+	i, ok := ControlMap[x]
+	if ! ok {
+		return 0, false
+	}
+	return GetRegByIndex(i)
+}
 
-// func Init() {
-// 	var err error
-// 	Fpga = new(FPGA)
-// 	Fpga.memfile, err = os.OpenFile("/dev/mem", os.O_RDWR, 0744)
-// 	if err != nil {
-// 		panic("can't open memory")
-// 	}
-// 	fmt.Println("Opened memfile")
-// 	Fpga.RegSlice, err = syscall.Mmap(int(Fpga.memfile.Fd()), BASE_ADDR, BASE_SIZE, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
-// 	if err != nil {
-// 		panic("can't mmap main Fpga registers")
-// 	}
-// 	fmt.Println("Called Mmap")
-// 	Fpga.Regs = (*Regs)(unsafe.Pointer(&Fpga.RegSlice))
-// 	fmt.Println("Set address of Regs")
-
-// 	Fpga.vidSlice, err = syscall.Mmap(int(Fpga.memfile.Fd()), BASE_ADDR+CHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
-// 	if err != nil {
-// 		panic("can't mmap video buffer")
-// 	}
-// 	fmt.Println("Mapped Video buffer")
-// 	Fpga.VidBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&Fpga.vidSlice[0]))
-// 	Fpga.trigSlice, err = syscall.Mmap(int(Fpga.memfile.Fd()), BASE_ADDR+CHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
-// 	if err != nil {
-// 		panic("can't mmap trigger buffer")
-// 	}
-// 	Fpga.TrigBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&Fpga.trigSlice[0]))
-// 	Fpga.acpSlice, err = syscall.Mmap(int(Fpga.memfile.Fd()), BASE_ADDR+XCHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
-// 	if err != nil {
-// 		panic("can't mmap ACP buffer")
-// 	}
-// 	Fpga.ACPBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&Fpga.acpSlice[0]))
-// 	Fpga.arpSlice, err = syscall.Mmap(int(Fpga.memfile.Fd()), BASE_ADDR+XCHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
-// 	if err != nil {
-// 		panic("can't mmap ARP buffer")
-// 	}
-// 	Fpga.ARPBuf = (*[SAMPLES_PER_BUFF]uint32)(unsafe.Pointer(&Fpga.arpSlice[0]))
-
-// 	// names of Control registers in a standard order
-// 	ControlKeys = []string{
-// 		"Command",
-// 		"TrigSource",
-// 		"NumSamp",
-// 		"DecRate",
-// 		"Options",
-// 		"TrigThreshExcite",
-// "TrigThreshRelax",
-// 		"TrigDelay",
-// 		"TrigLatency",
-// 		"ACPThreshExcite",
-// 		"ACPThreshRelax",
-// 		"ACPLatency",
-// 		"ARPThreshExcite",
-// 		"ARPThreshRelax",
-// 		"ARPLatency",
-// 	}
-
-// 	ControlMap = map[string]*uint32{
-// 		"Command":          &Fpga.Command,
-// 		"TrigSource":       &Fpga.TrigSource,
-// 		"NumSamp":          &Fpga.NumSamp,
-// 		"DecRate":          &Fpga.DecRate,
-// 		"Options":          &Fpga.Options,
-// 		"TrigThreshExcite": &Fpga.TrigThreshExcite,
-// 		"TrigThreshRelax":  &Fpga.TrigThreshRelax,
-// 		"TrigDelay":        &Fpga.TrigDelay,
-// 		"TrigLatency":      &Fpga.TrigLatency,
-// 		"ACPThreshExcite":  &Fpga.ACPThreshExcite,
-// 		"ACPThreshRelax":   &Fpga.ACPThreshRelax,
-// 		"ACPLatency":       &Fpga.ACPLatency,
-// 		"ARPThreshExcite":  &Fpga.ARPThreshExcite,
-// 		"ARPThreshRelax":   &Fpga.ARPThreshRelax,
-// 		"ARPLatency":       &Fpga.ARPLatency,
-// 	}
-// }
 
 // Open sets up pointers to Fpga memory-mapped registers and allocates buffers.
-func New() (fpga *FPGA) {
+func Init() {
 	var err error
-	fpga = new(FPGA)
-	fpga.memfile, err = os.OpenFile("/dev/mem", os.O_RDWR, 0744)
-	if err != nil {
-		return nil
-	}
-	fpga.RegSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR, BASE_SIZE, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
+	var t reflect.Type
+	memfile, err = os.OpenFile("/dev/mem", os.O_RDWR, 0744)
 	if err != nil {
 		goto cleanup
 	}
-	fmt.Printf("Got RegSlice=%v\n", unsafe.Pointer(&fpga.RegSlice[0]))
-	fpga.Regs = (*Regs)(unsafe.Pointer(&fpga.RegSlice[0]))
-	fpga.RegsU32 = (*RegsU32)(unsafe.Pointer(&fpga.RegSlice[0]))
-	fpga.vidSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR+CHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	regSlice, err = syscall.Mmap(int(memfile.Fd()), BASE_ADDR, BASE_SIZE, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
 	}
-	fpga.VidBuf = (*VidBuf)(unsafe.Pointer(&fpga.vidSlice[0]))
-	fpga.trigSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR+CHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	fmt.Printf("Got RegSlice=%v\n", unsafe.Pointer(&regSlice[0]))
+	Regs = (*regs)(unsafe.Pointer(&regSlice[0]))
+	RegsU32 = (*regsU32)(unsafe.Pointer(&regSlice[0]))
+	vidSlice, err = syscall.Mmap(int(memfile.Fd()), BASE_ADDR+CHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
 	}
-	fpga.TrigBuf = (*TrigBuf)(unsafe.Pointer(&fpga.trigSlice[0]))
-	fpga.acpSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR+XCHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	VidBuf = (*vidBuf)(unsafe.Pointer(&vidSlice[0]))
+	trigSlice, err = syscall.Mmap(int(memfile.Fd()), BASE_ADDR+CHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
 	}
-	fpga.ACPBuf = (*ACPBuf)(unsafe.Pointer(&fpga.acpSlice[0]))
-	fpga.arpSlice, err = syscall.Mmap(int(fpga.memfile.Fd()), BASE_ADDR+XCHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	TrigBuf = (*trigBuf)(unsafe.Pointer(&trigSlice[0]))
+	acpSlice, err = syscall.Mmap(int(memfile.Fd()), BASE_ADDR+XCHA_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
 	if err != nil {
 		goto cleanup
 	}
-	fpga.ARPBuf = (*ARPBuf)(unsafe.Pointer(&fpga.arpSlice[0]))
+	ACPBuf = (*acpBuf)(unsafe.Pointer(&acpSlice[0]))
+	arpSlice, err = syscall.Mmap(int(memfile.Fd()), BASE_ADDR+XCHB_OFFSET, BUFF_SIZE_BYTES, syscall.PROT_READ, syscall.MAP_SHARED)
+	if err != nil {
+		goto cleanup
+	}
+	ARPBuf = (*arpBuf)(unsafe.Pointer(&arpSlice[0]))
 	// names of Control registers in a standard order
-	fpga.ControlKeys = []string{
-//		"Command",
-		"TrigSource",
-		"NumSamp",
-		"DecRate",
-		"Options",
-		"TrigThreshExcite",
-		"TrigThreshRelax",
-		"TrigDelay",
-		"TrigLatency",
-		"ACPThreshExcite",
-		"ACPThreshRelax",
-		"ACPLatency",
-		"ARPThreshExcite",
-		"ARPThreshRelax",
-		"ARPLatency",
+	t = reflect.TypeOf(Regs).Elem()
+	fmt.Println("Got typeof *regs")
+	ControlKeys = make([]string, t.NumField())
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		ControlKeys[i] = f.Name
 	}
 	fmt.Println("Got past making ControlKeys")
-	// fpga.ControlMap = map[string]*uint32{
-	// 	"Command":          &fpga.Command,
-	// 	"TrigSource":       &fpga.TrigSource,
-	// 	"NumSamp":          &fpga.NumSamp,
-	// 	"DecRate":          &fpga.DecRate,
-	// 	"Options":          &fpga.Options,
-	// 	"TrigThreshExcite": &fpga.TrigThreshExcite,
-	// 	"TrigThreshRelax":  &fpga.TrigThreshRelax,
-	// 	"TrigDelay":        &fpga.TrigDelay,
-	// 	"TrigLatency":      &fpga.TrigLatency,
-	// 	"ACPThreshExcite":  &fpga.ACPThreshExcite,
-	// 	"ACPThreshRelax":   &fpga.ACPThreshRelax,
-	// 	"ACPLatency":       &fpga.ACPLatency,
-	// 	"ARPThreshExcite":  &fpga.ARPThreshExcite,
-	// 	"ARPThreshRelax":   &fpga.ARPThreshRelax,
-	// 	"ARPLatency":       &fpga.ARPLatency,
-	// }
+	ControlMap = make(map[string]int, len(ControlKeys))
+	for i := 0; i < len(ControlKeys); i++ {
+		ControlMap[ControlKeys[i]] = i
+	}
 	fmt.Println("Got past making ControlMap")
-	return fpga
+	return
 cleanup:
-	fpga.Close()
-	return nil
+	panic("Unable to set up fpga")
 }
 
-// Close frees Fpga resources.  NB: when would this ever be needed??
-func (fpga *FPGA) Close() {
-	if fpga.memfile == nil {
-		return
-	}
-	_ = syscall.Munmap(fpga.arpSlice)
-	_ = syscall.Munmap(fpga.acpSlice)
-	_ = syscall.Munmap(fpga.trigSlice)
-	_ = syscall.Munmap(fpga.vidSlice)
-	_ = syscall.Munmap(fpga.RegSlice)
-	fpga.ARPBuf = nil
-	fpga.ACPBuf = nil
-	fpga.TrigBuf = nil
-	fpga.VidBuf = nil
-	fpga.Regs = nil
-	fpga.memfile.Close()
-	fpga.memfile = nil
-}
+// // Close frees Fpga resources.  NB: when would this ever be needed??
+// func (fpga *FPGA) Close() {
+// 	if fpga.memfile == nil {
+// 		return
+// 	}
+// 	_ = syscall.Munmap(fpga.arpSlice)
+// 	_ = syscall.Munmap(fpga.acpSlice)
+// 	_ = syscall.Munmap(fpga.trigSlice)
+// 	_ = syscall.Munmap(fpga.vidSlice)
+// 	_ = syscall.Munmap(fpga.RegSlice)
+// 	fpga.ARPBuf = nil
+// 	fpga.ACPBuf = nil
+// 	fpga.TrigBuf = nil
+// 	fpga.VidBuf = nil
+// 	fpga.Regs = nil
+// 	fpga.memfile.Close()
+// 	fpga.memfile = nil
+// }
 
 // Reset tells the Fpga to restart digitizing
-func (fpga *FPGA) Reset() {
-	fpga.Command |= CMD_RST_BIT
+func Reset() {
+	Regs.Command |= CMD_RST_BIT
 }
 
 // Arm tells the Fpga to start digitizing at the next trigger detection.
-func (fpga *FPGA) Arm() {
-	fpga.Command |= CMD_ARM_BIT
+func Arm() {
+	Regs.Command |= CMD_ARM_BIT
 }
 
 // SelectTrig chooses the source used to trigger data acquisition.
-func (fpga *FPGA) SelectTrig(t TrigType) {
-	fpga.TrigSource = uint32(t)
+func SelectTrig(t TrigType) {
+	Regs.TrigSource = uint32(t)
 }
 
 // SetDecim selects the Fpga ADC decimation rate.
 // Valid decimation rates are 1..65536.
-func (fpga *FPGA) SetDecim(decim uint32) bool {
+func SetDecim(decim uint32) bool {
 	if decim < 1 || decim > 65536 {
 		return false
 	}
-	fpga.DecRate = decim
+	Regs.DecRate = decim
 	return true
 }
 
 // SetNumSamp sets the number of samples to acquire after a trigger.
 // Must be in the range 1...SAMPLES_PER_BUFF
 // returns true on success; false otherwise
-func (fpga *FPGA) SetNumSamp(n uint32) bool {
+func SetNumSamp(n uint32) bool {
 	if n > SAMPLES_PER_BUFF || n < 1 {
 		return false
 	}
-	fpga.NumSamp = n
+	Regs.NumSamp = n
 	return true
 }
 
@@ -469,6 +390,6 @@ func (fpga *FPGA) SetNumSamp(n uint32) bool {
 //
 // Note: if called before the first call to Arm(), returns true
 // even though there are no data available in the buffer.
-func (fpga *FPGA) HasTriggered() bool {
-	return (fpga.TrigSource & TRIG_SRC_MASK) == 0
+func HasTriggered() bool {
+	return (Regs.TrigSource & TRIG_SRC_MASK) == 0
 }
