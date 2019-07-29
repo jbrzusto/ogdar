@@ -5,12 +5,11 @@ import (
 	. "github.com/jbrzusto/ogdar/fpga"
 	. "github.com/jbrzusto/ogdar/buffer"
 	"time"
-//	"unsafe"
 )
 
 func main() {
 	Init()
-	Reset()
+//	Reset()
 	fmt.Printf("Clocks is %d\n", Regs.Clocks)
 	for i := 1; i < NumRegs(); i++ {
 		if i != 0 {
@@ -31,7 +30,10 @@ func main() {
 	time.Sleep(time.Second)
 	arp, _ = GetRegByName("ARPRaw")
 	fmt.Printf("Clocks @%p is %d, ARPRaw is %x, TrigAtARP=%d\n", &Regs.Clocks, Regs.Clocks, arp, Regs.TrigAtARP)
-	fmt.Printf("Clocks is %d\n", Regs.Clocks)
+	Reset()
+	time.Sleep(time.Second)
+	arp, _ = GetRegByName("ARPRaw")
+	fmt.Printf("Clocks @%p is %d, ARPRaw is %x, TrigAtARP=%d\n", &Regs.Clocks, Regs.Clocks, arp, Regs.TrigAtARP)
 	tc2 := Regs.TrigCount
 	fmt.Printf("ARP count: %d\nACP per ARP: %d\nPRF: %d\n", Regs.ARPCount, Regs.ACPPerARP, tc2 - tc1)
 	buffer := SampleBuff{}
