@@ -29,12 +29,12 @@ func (reg reg) MMap() string {
 	case reflect.Uint32:
 		fallthrough
 	case reflect.Int32:
-		return fmt.Sprintf("`define OFFSET_%-20s 20'h%06x // %s\n", reg.name, reg.offset, reg.desc)
+		return fmt.Sprintf("`define OFFSET_%-30s 20'h%06x // %s\n", reg.name, reg.offset, reg.desc)
 	case reflect.Uint64:
 		fallthrough
 	case reflect.Int64:
-		return fmt.Sprintf("`define OFFSET_%-20s 20'h%06x // low 32-bits: %s\n", reg.name+"_LO", reg.offset, reg.desc) +
-			fmt.Sprintf("`define OFFSET_%-20s 20'h%06x // high 32-bits\n", reg.name+"_HI", reg.offset+4)
+		return fmt.Sprintf("`define OFFSET_%-30s 20'h%06x // low 32-bits: %s\n", reg.name+"_LO", reg.offset, reg.desc) +
+			fmt.Sprintf("`define OFFSET_%-30s 20'h%06x // high 32-bits\n", reg.name+"_HI", reg.offset+4)
 	}
 	return ""
 }
@@ -46,7 +46,7 @@ func (reg reg) Def() (rv string) {
 	} else {
 		rv = "   reg "
 	}
-	return rv + fmt.Sprintf(" [%d-1: 0] %-25s; // %s\n", reg.size, reg.regname, reg.desc)
+	return rv + fmt.Sprintf(" [%d-1: 0] %-30s; // %s\n", reg.size, reg.regname, reg.desc)
 }
 
 // Getter returns the verilog clause for reading the register value.
@@ -54,7 +54,7 @@ func (reg reg) Def() (rv string) {
 // Uses 'ack' as the acknowledge signal, and 'rdata' as the data bus
 func (reg reg) Getter() string {
 	const (
-		ack = "ack"
+		ack  = "ack"
 		dbus = "rdata"
 	)
 	if reg.mode == "p" {
@@ -64,12 +64,12 @@ func (reg reg) Getter() string {
 	case reflect.Uint32:
 		fallthrough
 	case reflect.Int32:
-		return fmt.Sprintf("        `OFFSET_%-25s  : begin %s <= 1'b1;  %s <= %-30s[32-1: 0]; end\n", reg.name, ack, dbus, reg.regname)
+		return fmt.Sprintf("        `OFFSET_%-30s  : begin %s <= 1'b1;  %s <= %-30s[32-1: 0]; end\n", reg.name, ack, dbus, reg.regname)
 	case reflect.Uint64:
 		fallthrough
 	case reflect.Int64:
-		return fmt.Sprintf("        `OFFSET_%-25s  : begin %s <= 1'b1;  %s <= %-30s[32-1: 0]; end\n", reg.name+"_LO", ack, dbus, reg.regname) +
-			fmt.Sprintf("        `OFFSET_%-25s  : begin %s <= 1'b1;  %s <= %-30s[64-1:32]; end\n", reg.name+"_HI", ack, dbus, reg.regname)
+		return fmt.Sprintf("        `OFFSET_%-30s  : begin %s <= 1'b1;  %s <= %-30s[32-1: 0]; end\n", reg.name+"_LO", ack, dbus, reg.regname) +
+			fmt.Sprintf("        `OFFSET_%-30s  : begin %s <= 1'b1;  %s <= %-30s[64-1:32]; end\n", reg.name+"_HI", ack, dbus, reg.regname)
 	}
 	return ""
 }
@@ -88,12 +88,12 @@ func (reg reg) Setter() string {
 	case reflect.Uint32:
 		fallthrough
 	case reflect.Int32:
-		return fmt.Sprintf("        `OFFSET_%-25s  : %-25s <= %s[32-1: 0];\n", reg.name, reg.regname, dbus)
+		return fmt.Sprintf("        `OFFSET_%-30s  : %-30s <= %s[32-1: 0];\n", reg.name, reg.regname, dbus)
 	case reflect.Uint64:
 		fallthrough
 	case reflect.Int64:
-		return fmt.Sprintf("        `OFFSET_%-25s  : %-25s[32-1: 0] <= %s[32-1: 0];\n", reg.name+"_LO", reg.regname, dbus) +
-			fmt.Sprintf("        `OFFSET_%-25s  : %-25s[64-1:32] <= %s[32-1: 0];\n", reg.name+"_HI", reg.regname, dbus)
+		return fmt.Sprintf("        `OFFSET_%-30s  : %-30s[32-1: 0] <= %s[32-1: 0];\n", reg.name+"_LO", reg.regname, dbus) +
+			fmt.Sprintf("        `OFFSET_%-30s  : %-30s[64-1:32] <= %s[32-1: 0];\n", reg.name+"_HI", reg.regname, dbus)
 	}
 	return ""
 }
@@ -115,12 +115,12 @@ func (reg reg) Pulser() string {
 	case reflect.Uint32:
 		fallthrough
 	case reflect.Int32:
-		return fmt.Sprintf("        %s <= {32{%s[19:0] == `OFFSET_%-25s}} & %s[32-1: 0];\n", reg.regname, addr, reg.name, dbus)
+		return fmt.Sprintf("        %s <= {32{%s[19:0] == `OFFSET_%-30s}} & %s[32-1: 0];\n", reg.regname, addr, reg.name, dbus)
 	case reflect.Uint64:
 		fallthrough
 	case reflect.Int64:
-		return fmt.Sprintf("        %s[32-1: 0] <= {32{%s[19:0] == `OFFSET_%-25s}} & %s[32-1: 0];\n", reg.regname, addr, reg.name+"_LO", dbus) +
-			fmt.Sprintf("        %s[64-1:32] <= {32{%s[19:0] == `OFFSET_%-25s}} & %s[32-1: 0];\n", reg.regname, addr, reg.name+"_HI", dbus)
+		return fmt.Sprintf("        %s[32-1: 0] <= {32{%s[19:0] == `OFFSET_%-30s}} & %s[32-1: 0];\n", reg.regname, addr, reg.name+"_LO", dbus) +
+			fmt.Sprintf("        %s[64-1:32] <= {32{%s[19:0] == `OFFSET_%-30s}} & %s[32-1: 0];\n", reg.regname, addr, reg.name+"_HI", dbus)
 	}
 	return ""
 }
