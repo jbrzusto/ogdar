@@ -81,11 +81,12 @@ const (
 	TRG_ARP                // pulse on radar ARP channel
 )
 
-// Status are flags for FPGA status
+// Status for the FPGA
 type Status uint32
 
 const (
-	STATUS_ARMED     Status = 1 << iota // FPGA is ready to detect a trigger and begin capturing
+	STATUS_IDLE      Status = iota      // FPGA is waiting to be armed
+	STATUS_ARMED                        // FPGA is ready to detect a trigger and begin capturing
 	STATUS_CAPTURING                    // FPGA detected a trigger and is capturing
 	STATUS_FIRED                        // FPGA detected a trigger and has finished capturing
 )
@@ -220,7 +221,7 @@ type regs struct {
 
 	ARPRaw uint32 `reg:"arp_raw" mode:"r" desc:"most recent slow ADC value from ARP"`
 
-	Status uint32 `reg:"status" mode:"r" desc:"Status: bit[0]: armed; bit[1]: capturing; bit[2]: fired"`
+	Status uint32 `reg:"status" mode:"r" desc:"Status: 0 = idle; 1 = armed; 2 = capturing; 3 = fired (finished capturing)"`
 }
 
 // RegsU32 allows access to the registers as an array of uint32
