@@ -39,11 +39,10 @@
    reg  [32-1: 0] saved_acp_count               ; // ACP Count: number of Azimuth Count Pulses detected since last reset
    reg  [32-1: 0] saved_arp_count               ; // ARP Count: number of Azimuth Return Pulses (rotations) detected since last reset
    reg  [32-1: 0] saved_acp_per_arp             ; // count of ACP between two most recent ARP
-   reg  [32-1: 0] saved_adc_counter             ; // ADC Counter: 14-bit ADC counter used in counting mode
    reg  [32-1: 0] saved_acp_at_arp              ; // ACP at ARP: ACP count at most recent ARP
    reg  [32-1: 0] saved_clock_since_acp_at_arp  ; // ACP Offset at ARP: count of ADC clocks since last ACP, at last ARP
    reg  [32-1: 0] saved_trig_at_arp             ; // Trig at ARP: Trigger count at most recent ARP
-   reg  [32-1: 0] adc_counter                   ; // ADC Counter: 14-bit ADC counter used in counting mode
+   reg  [32-1: 0] adc_counter                   ; // ADC Counter: 14-bit ADC counter used in counting mode; starts at 0 upon triggering, and increments at each ADC clock
    reg  [32-1: 0] acp_raw                       ; // most recent slow ADC value from ACP
    reg  [32-1: 0] arp_raw                       ; // most recent slow ADC value from ARP
    reg  [32-1: 0] status                        ; // Status: bit[0]: armed; bit[1]: capturing; bit[2]: fired

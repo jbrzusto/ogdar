@@ -208,15 +208,13 @@ type regs struct {
 
 	SavedACPPerARP uint32 `reg:"saved_acp_per_arp" mode:"r" desc:"count of ACP between two most recent ARP"`
 
-	SavedADCCounter uint32 `reg:"saved_adc_counter" mode:"r" desc:"ADC Counter: 14-bit ADC counter used in counting mode"`
-
 	SavedACPAtARP uint32 `reg:"saved_acp_at_arp" mode:"r" desc:"ACP at ARP: ACP count at most recent ARP"`
 
 	SavedClockSinceACPAtARP uint32 `reg:"saved_clock_since_acp_at_arp" mode:"r" desc:"ACP Offset at ARP: count of ADC clocks since last ACP, at last ARP"`
 
 	SavedTrigAtARP uint32 `reg:"saved_trig_at_arp" mode:"r" desc:"Trig at ARP: Trigger count at most recent ARP"`
 
-	ADCCounter uint32 `reg:"adc_counter" mode:"r" desc:"ADC Counter: 14-bit ADC counter used in counting mode"`
+	ADCCounter uint32 `reg:"adc_counter" mode:"r" desc:"ADC Counter: 14-bit ADC counter used in counting mode; starts at 0 upon triggering, and increments at each ADC clock"`
 
 	ACPRaw uint32 `reg:"acp_raw" mode:"r" desc:"most recent slow ADC value from ACP"`
 

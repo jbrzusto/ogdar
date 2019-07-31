@@ -52,11 +52,10 @@
 `define OFFSET_SavedACPCount                  20'h0000c4 // ACP Count: number of Azimuth Count Pulses detected since last reset
 `define OFFSET_SavedARPCount                  20'h0000c8 // ARP Count: number of Azimuth Return Pulses (rotations) detected since last reset
 `define OFFSET_SavedACPPerARP                 20'h0000cc // count of ACP between two most recent ARP
-`define OFFSET_SavedADCCounter                20'h0000d0 // ADC Counter: 14-bit ADC counter used in counting mode
-`define OFFSET_SavedACPAtARP                  20'h0000d4 // ACP at ARP: ACP count at most recent ARP
-`define OFFSET_SavedClockSinceACPAtARP        20'h0000d8 // ACP Offset at ARP: count of ADC clocks since last ACP, at last ARP
-`define OFFSET_SavedTrigAtARP                 20'h0000dc // Trig at ARP: Trigger count at most recent ARP
-`define OFFSET_ADCCounter                     20'h0000e0 // ADC Counter: 14-bit ADC counter used in counting mode
-`define OFFSET_ACPRaw                         20'h0000e4 // most recent slow ADC value from ACP
-`define OFFSET_ARPRaw                         20'h0000e8 // most recent slow ADC value from ARP
-`define OFFSET_Status                         20'h0000ec // Status: bit[0]: armed; bit[1]: capturing; bit[2]: fired
+`define OFFSET_SavedACPAtARP                  20'h0000d0 // ACP at ARP: ACP count at most recent ARP
+`define OFFSET_SavedClockSinceACPAtARP        20'h0000d4 // ACP Offset at ARP: count of ADC clocks since last ACP, at last ARP
+`define OFFSET_SavedTrigAtARP                 20'h0000d8 // Trig at ARP: Trigger count at most recent ARP
+`define OFFSET_ADCCounter                     20'h0000dc // ADC Counter: 14-bit ADC counter used in counting mode; starts at 0 upon triggering, and increments at each ADC clock
+`define OFFSET_ACPRaw                         20'h0000e0 // most recent slow ADC value from ACP
+`define OFFSET_ARPRaw                         20'h0000e4 // most recent slow ADC value from ARP
+`define OFFSET_Status                         20'h0000e8 // Status: bit[0]: armed; bit[1]: capturing; bit[2]: fired

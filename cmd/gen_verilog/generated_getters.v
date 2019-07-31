@@ -51,7 +51,6 @@
         `OFFSET_SavedACPCount                   : begin ack <= 1'b1;  rdata <= saved_acp_count               [32-1: 0]; end
         `OFFSET_SavedARPCount                   : begin ack <= 1'b1;  rdata <= saved_arp_count               [32-1: 0]; end
         `OFFSET_SavedACPPerARP                  : begin ack <= 1'b1;  rdata <= saved_acp_per_arp             [32-1: 0]; end
-        `OFFSET_SavedADCCounter                 : begin ack <= 1'b1;  rdata <= saved_adc_counter             [32-1: 0]; end
         `OFFSET_SavedACPAtARP                   : begin ack <= 1'b1;  rdata <= saved_acp_at_arp              [32-1: 0]; end
         `OFFSET_SavedClockSinceACPAtARP         : begin ack <= 1'b1;  rdata <= saved_clock_since_acp_at_arp  [32-1: 0]; end
         `OFFSET_SavedTrigAtARP                  : begin ack <= 1'b1;  rdata <= saved_trig_at_arp             [32-1: 0]; end
