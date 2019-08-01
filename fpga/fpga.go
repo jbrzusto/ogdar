@@ -57,8 +57,8 @@ const (
 	BASE_ADDR              = 0x40100000           // Starting address of FPGA registers handling the Digdar module
 	BASE_SIZE              = 0x1000               // The size of FPGA registers handling the Digdar module
 	SIG_LEN                = SAMPLES_PER_BUFF     // Size of data buffer into which input signal is captured , must be 2^n!
-	CMD_ARM_BIT            = 1                    // Bit index in FPGA Command register for arming the trigger
-	CMD_RST_BIT            = 2                    // Bit index in FPGA Command register for resetting write state machine
+	CMD_ARM_BIT            = 1                    // Bit value in FPGA Command register for arming the trigger
+	CMD_RST_BIT            = 2                    // Bit value in FPGA Command register for resetting write state machine
 	TRIG_SRC_TRIG_MASK     = 0xff                 // Bit mask in the trigger_source register for depicting the trigger source type.
 	CHA_OFFSET             = 0x10000              // Offset to the memory buffer where signal on channel A is captured.
 	CHB_OFFSET             = 0x20000              // Offset to the memory buffer where signal on channel B is captured.
