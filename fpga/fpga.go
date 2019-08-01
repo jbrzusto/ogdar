@@ -115,7 +115,7 @@ const (
 //  ** WARNING ** WARNING ** WARNING **
 //
 // This struct must match the FPGA code exactly!  In particular, the
-// order and tags of fields in this struct is **CRITICAL**.  If you
+// order and tags of fields in this struct are **CRITICAL**.  If you
 // change them, you **MUST** re-run gen_verilog, then copy the
 // generated_*.v files to proj/digdar/FPGA/release_1/fpga/code/rtl,
 // and regenerate the FPGA bitstream and boot.bin using Vivado, then
@@ -244,14 +244,20 @@ type acpBuf [SAMPLES_PER_BUFF]uint32
 //go:notinheap
 type arpBuf [SAMPLES_PER_BUFF]uint32
 
-// regPtr holds a pointer to a (non-heap) FPGA register
+// regPtr holds a pointer to a (non-heap) FPGA register.
 //go:notinheap
 type regPtr *uint32
 
 // -------------</ Types for FPGA Registers and BRAM>-----------------------------
 
-// FPGA holds the redpitaya FPGA object.
+// We declare variables at the package level for two reasons:
+// - the fpga is a singleton object (there's only one on board)
+// - the 'go:notinheap' pragma doesn't seem reliable (or is more
+// complicated to use correctly?) when objects declared with it are enclosed in
+// structs.
+
 var (
+	inited    bool           // true once user has called Init() since any preceding call to Fini()
 	Regs      *regs          // pointer to reg structure; will be filled in from mmap()
 	RegsU32   *regsU32       // regs as an array of uint32 (pointer to first element, actually)
 	regSlice  []byte         // registers as a byte slice
@@ -269,8 +275,8 @@ var (
 	RegIndex  []uintptr      // RegIndex is a slice of indexes (into RegsU32) of the FPGA registers in storage order
 )
 
-// GetRegByIndex returns the uint32 value of a register, given its index
-// second return value is true on success
+// GetRegByIndex returns the uint32 value of a register, given its index.
+// The second return value is true on success, false if i is out of bounds.
 func GetRegByIndex(i int) (uint32, bool) {
 	if i < 0 || i >= len(RegMap) {
 		return 0, false
@@ -278,8 +284,8 @@ func GetRegByIndex(i int) (uint32, bool) {
 	return *((*uint32)(unsafe.Pointer(uintptr(unsafe.Pointer(RegsU32)) + RegIndex[i]))), true
 }
 
-// GetRegByName returns the uint32 value of a register, given its name
-// second return value is true on success
+// GetRegByName returns the uint32 value of a register, given its name.
+// The second return value is true on success, false if x is not the name of a register.
 func GetRegByName(x string) (uint32, bool) {
 	i, ok := RegMap[x]
 	if !ok {
@@ -288,8 +294,8 @@ func GetRegByName(x string) (uint32, bool) {
 	return GetRegByIndex(i)
 }
 
-// SetRegByIndex sets the value of a register, given its index
-// second return value is true on success
+// SetRegByIndex sets the value of a register, given its index.
+// The second return value is true on success, false if i is out of bounds.
 func SetRegByIndex(i int, v uint32) bool {
 	if i < 0 || i >= len(RegMap) {
 		return false
@@ -298,8 +304,8 @@ func SetRegByIndex(i int, v uint32) bool {
 	return true
 }
 
-// SetRegByName sets the value of a register, given its name
-// second return value is true on success
+// SetRegByName sets the value of a register, given its name.
+// The second return value is true on success, false if x is not the name of a register.
 func SetRegByName(x string, v uint32) bool {
 	i, ok := RegMap[x]
 	if !ok {
@@ -321,8 +327,13 @@ func RegName(i int) string {
 	return RegKeys[i]
 }
 
-// Open sets up pointers to Fpga memory-mapped registers and allocates buffers.
+// Init sets up pointers to Fpga memory-mapped registers and allocates buffers.
+// Note: this is not meant to be called at package load time, but explicitly by
+// the user, which is why it's not called 'init()'
 func Init() {
+	if inited {
+		return
+	}
 	var err error
 	var t reflect.Type
 	memfile, err = os.OpenFile("/dev/mem", os.O_RDWR, 0744)
@@ -380,31 +391,35 @@ func Init() {
 		}
 	}
 	// DEBUG:	fmt.Println("Got past making RegKeys/RegMap")
+	inited = true
 	return
 cleanup:
 	panic("Unable to set up fpga")
 }
 
-// // Close frees Fpga resources.  NB: when would this ever be needed??
-// func (fpga *FPGA) Close() {
-// 	if fpga.memfile == nil {
-// 		return
-// 	}
-// 	_ = syscall.Munmap(fpga.arpSlice)
-// 	_ = syscall.Munmap(fpga.acpSlice)
-// 	_ = syscall.Munmap(fpga.trigSlice)
-// 	_ = syscall.Munmap(fpga.vidSlice)
-// 	_ = syscall.Munmap(fpga.RegSlice)
-// 	fpga.ARPBuf = nil
-// 	fpga.ACPBuf = nil
-// 	fpga.TrigBuf = nil
-// 	fpga.VidBuf = nil
-// 	fpga.Regs = nil
-// 	fpga.memfile.Close()
-// 	fpga.memfile = nil
-// }
+// Fini frees Fpga resources.  NB: when would this ever be needed??
+func Fini() {
+	if ! inited {
+		return
+	}
+	_ = syscall.Munmap(arpSlice)
+	_ = syscall.Munmap(acpSlice)
+	_ = syscall.Munmap(trigSlice)
+	_ = syscall.Munmap(vidSlice)
+	_ = syscall.Munmap(regSlice)
+	ARPBuf = nil
+	ACPBuf = nil
+	TrigBuf = nil
+	VidBuf = nil
+	Regs = nil
+	RegsU32 = nil
+	memfile.Close()
+	memfile = nil
+	inited = false
+}
 
-// Reset tells the Fpga to restart digitizing
+// Reset resets the FPGA.  Control register values (e.g. trigger
+// thresholds) will need to be set before digitizing can begin.
 func Reset() {
 	Regs.Command |= CMD_RST_BIT
 }
