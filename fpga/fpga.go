@@ -375,19 +375,21 @@ func Init() {
 	RegIndex = make([]uintptr, 0, t.NumField())
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		switch f.Type.Size() {
-		case 4:
-			RegKeys = append(RegKeys, f.Name)
-			RegMap[f.Name] = len(RegIndex)
-			RegIndex = append(RegIndex, f.Offset)
-		case 8:
-			RegKeys = append(RegKeys, f.Name+"_lo", f.Name+"_hi")
-			RegMap[f.Name+"_lo"] = len(RegIndex)
-			RegIndex = append(RegIndex, f.Offset)
-			RegMap[f.Name+"_hi"] = len(RegIndex)
-			RegIndex = append(RegIndex, f.Offset+4)
-		default:
-			panic("unhandled field size in fpga.regs")
+		if f.Tag.Get("mode") == "rw" {
+			switch f.Type.Size() {
+			case 4:
+				RegKeys = append(RegKeys, f.Name)
+				RegMap[f.Name] = len(RegIndex)
+				RegIndex = append(RegIndex, f.Offset)
+			case 8:
+				RegKeys = append(RegKeys, f.Name+"_lo", f.Name+"_hi")
+				RegMap[f.Name+"_lo"] = len(RegIndex)
+				RegIndex = append(RegIndex, f.Offset)
+				RegMap[f.Name+"_hi"] = len(RegIndex)
+				RegIndex = append(RegIndex, f.Offset+4)
+			default:
+				panic("unhandled field size in fpga.regs")
+			}
 		}
 	}
 	// DEBUG:	fmt.Println("Got past making RegKeys/RegMap")
@@ -458,7 +460,7 @@ func SetNumSamp(n uint32) bool {
 // HasFired checks whether the Fpga has received a trigger and completed sample acquisition
 // since the last call to Arm().
 func HasFired() bool {
-	return (Regs.Status & uint32(STATUS_FIRED)) == 0
+	return Regs.Status == uint32(STATUS_FIRED)
 }
 
 // GetRegsPointerType returns a reflection object for the non-exported type `regs`
