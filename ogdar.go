@@ -9,7 +9,6 @@ import (
 
 func main() {
 	Init()
-//	Reset()
 	fmt.Printf("Clocks is %d\n", Regs.Clocks)
 	for i := 1; i < NumRegs(); i++ {
 		if i != 0 {
@@ -30,7 +29,6 @@ func main() {
 	time.Sleep(time.Second)
 	arp, _ = GetRegByName("ARPRaw")
 	fmt.Printf("Clocks @%p is %d, ARPRaw is %x, TrigAtARP=%d\n", &Regs.Clocks, Regs.Clocks, arp, Regs.TrigAtARP)
-	Reset()
 	time.Sleep(time.Second)
 	arp, _ = GetRegByName("ARPRaw")
 	fmt.Printf("Clocks @%p is %d, ARPRaw is %x, TrigAtARP=%d\n", &Regs.Clocks, Regs.Clocks, arp, Regs.TrigAtARP)
@@ -38,4 +36,5 @@ func main() {
 	fmt.Printf("ARP count: %d\nACP per ARP: %d\nPRF: %d\n", Regs.ARPCount, Regs.ACPPerARP, tc2 - tc1)
 	buffer := SampleBuff{}
 	fmt.Printf("Length of buffer is %d\n", len(buffer.SampBuff))
+	Fini()
 }
