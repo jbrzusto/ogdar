@@ -45,4 +45,4 @@
    reg  [32-1: 0] adc_counter                   ; // ADC Counter: 14-bit ADC counter used in counting mode; starts at 0 upon triggering, and increments at each ADC clock
    reg  [32-1: 0] acp_raw                       ; // most recent slow ADC value from ACP
    reg  [32-1: 0] arp_raw                       ; // most recent slow ADC value from ARP
-   reg  [32-1: 0] status                        ; // Status: bit[0]: armed; bit[1]: capturing; bit[2]: fired
+   reg  [32-1: 0] status                        ; // Status: 0 = idle; 1 = armed; 2 = capturing; 3 = fired (finished capturing)
