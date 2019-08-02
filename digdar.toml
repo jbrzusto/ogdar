@@ -1,0 +1,118 @@
+# This is a configuration file for digdar/ogdar
+# Open-source pulsed marine radar digitizer on the redpitaya board
+#
+# https://github.com/jbrzusto/ogdar
+# https://github.com/jbrzusto/digdar
+#
+# (C) 2014-2019 John Brzustowski
+# Licence: GPL-2 or any version(s) of (L)GPL you choose.
+
+# ---------parameters for digitizing the radar signal
+[digdar]
+
+# DecimRate is how often to sample the video signal once a trigger
+# pulse is detected.  When DecimRate = 1, every video sample is used.
+# At the ADC clock rate of 125 MHz, this is a range increment of ~ 1.2
+# metres per sample.  So DecimRate = 2 is a range increment of ~ 2.4 metres,
+# and so on.
+
+DecimRate = 1
+
+# NumSamp is the number of (possibly decimated/summed/averaged) video samples
+# to capture for each trigger pulse.  It must be an even number.
+# e.g. with DecimRate = 2 and NumSamp = 1000, capture range is 0 ... 2.4 kilometers
+# Max is 16384, but that is probably only useful for testing.
+
+NumSamp = 4000
+
+# Options selects among decimation possibilities and video negation.
+# It is a sum of a decimation mode, a negation mode, and a counting mode:
+# Decimation mode:  0 = only use n'th sample; 1 = average n samples; 3 = sum n samples
+# Negation mode: 0 = video as-is; 4 = invert video (e.g. for Furuno radars)
+# Counting mode: 0 = real video; 8 = fake 'counting' video (for testing only)
+#
+# Note: 'sum' only works for DecimRate = 1, 2, 3 or 4
+#       'average' only works for DecimRate = 1, 2, 4, 8, 64, 1024, 8192 and 65536
+#       For other DecimRate, the n'th sample is returned regardless of the
+#       decimation mode.
+#
+# By default, we negate video and sum samples
+
+Options = 7
+
+# TrigSource is what signal (if any) is used to start capture of video samples.
+#  0 = don't trigger
+#  1 = trigger immediately upon arming (used when calibrating)
+#  2 = radar trigger pulse (normal value; default)
+#  3 = radar ACP pulse (used when calibrating)
+#  4 = radar ARP pulse (used when calibrating)
+
+TrigSource = 2
+
+# Trigger pulses are detected when the signal level crosses the Excite threshold,
+# after having crossed the Relax threshold.  If Excite is larger, the detection
+# is on the rising edge, otherwise it is on the falling edge.
+# Values are on the scale -8192 ... 8191 corresponding to the range of a signed
+# 14-bit integer.
+
+TrigThreshExcite = -6550
+TrigThreshRelax  = -8000
+
+# TrigLatency is how long the digitizer must wait after seeing a trigger
+# pulse before it is willing to recognize another one.  This reduces false positives
+# due to noise.  The units are ADC clocks.  The ADC clock runs at 125 MHz, so the
+# units are equivalent to 8 nanoseconds.  i.e. 12500 clocks = 0.1 millisecond
+
+TrigLatency = 12500
+
+# TrigDelay is how long the digitizer waits after being triggered before it begins
+# capture of video samples.  This allows for the time it takes the trigger signal
+# to actually cause emission of the radar's microwave pulse. (i.e. corrects for
+# a black hole at the centre of the PPI due to capturing too early)
+# Units are ADC clocks (8 ns)
+
+TrigDelay = 30
+
+# ACP pulses are detected when the signal level crosses the Excite threshold,
+# after having crossed the Relax threshold.  If Excite is larger, the detection
+# is on the rising edge, otherwise it is on the falling edge.
+# Values are on the scale -2048 ... 2047 corresponding to the range of a signed
+# 12-bit integer.
+
+ACPThreshExcite = -1638
+ACPThreshRelax  = 1228
+
+# ACPLatency is how long the digitizer must wait after seeing an ACP
+# pulse before it is willing to recognize another one.  This reduces false positives
+# due to noise.  The units are ADC clocks.  The ADC clock runs at 125 MHz, so the
+# units are equivalent to 8 nanoseconds.  i.e. 500000 clocks = 4 ms
+
+ACPLatency = 500000
+
+# ARP pulses are detected when the signal level crosses the Excite threshold,
+# after having crossed the Relax threshold.  If Excite is larger, the detection
+# is on the rising edge, otherwise it is on the falling edge.
+# Values are on the scale -2048 ... 2047 corresponding to the range of a signed
+# 12-bit integer.
+
+ARPThreshExcite = -1638
+ARPThreshRelax  = 1228
+
+# ARPLatency is how long the digitizer must wait after seeing an ARP
+# pulse before it is willing to recognize another one.  This reduces false positives
+# due to noise.  The units are ADC clocks.  The ADC clock runs at 125 MHz, so the
+# units are equivalent to 8 nanoseconds.  i.e. 125000000 clocks = 1 s
+
+ARPLatency = 125000000
+
+# The radar will have a constant number of ACPs in one rotation, and this is
+# the theoretical number of ACPs detected for each ARP.  In practice, detection
+# of the ARP might have a bit of 'play' due to the antenna's rotation rate
+# varying under wind load, so it is important to know the true count of ACPs
+# in one rotation so we can better estimate the true heading.
+#
+# For typical Furuno FR radars, there are 450 ACPs per ARP
+# The Bridgemaster E (with extra cabling to ports on a board in the turning unit)
+# provides 4096 ACPs per ARP
+
+ACPPerARP = 450

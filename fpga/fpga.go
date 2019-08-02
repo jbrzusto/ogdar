@@ -85,10 +85,10 @@ const (
 type Status uint32
 
 const (
-	STATUS_IDLE      Status = iota      // FPGA is waiting to be armed
-	STATUS_ARMED                        // FPGA is ready to detect a trigger and begin capturing
-	STATUS_CAPTURING                    // FPGA detected a trigger and is capturing
-	STATUS_FIRED                        // FPGA detected a trigger and has finished capturing
+	STATUS_IDLE      Status = iota // FPGA is waiting to be armed
+	STATUS_ARMED                   // FPGA is ready to detect a trigger and begin capturing
+	STATUS_CAPTURING               // FPGA detected a trigger and is capturing
+	STATUS_FIRED                   // FPGA detected a trigger and has finished capturing
 )
 
 // DigdarOption is a set of bit flags for the field OscFPGARegMem.Options
@@ -228,6 +228,10 @@ type regs struct {
 //go:notinheap
 type regsU32 uint32
 
+// RegsU32Ptr allows pointer access to an individual register
+//go:notinheap
+type RegsU32Ptr *uint32
+
 // VidBuf holds the video (Channel A) samples in the FPGA's BRAM buffer
 //go:notinheap
 type vidBuf [SAMPLES_PER_BUFF]uint32
@@ -275,13 +279,23 @@ var (
 	RegIndex  []uintptr      // RegIndex is a slice of indexes (into RegsU32) of the FPGA registers in storage order
 )
 
+// GetRegPtrByIndex returns a pointer to the uint32 value of a register, given its index.
+// The second return value is true on success, false if i is out of bounds.
+func GetRegPtrByIndex(i int) (RegsU32Ptr, bool) {
+	if i < 0 || i >= len(RegMap) {
+		return nil, false
+	}
+	return ((*uint32)(unsafe.Pointer(uintptr(unsafe.Pointer(RegsU32)) + RegIndex[i]))), true
+}
+
 // GetRegByIndex returns the uint32 value of a register, given its index.
 // The second return value is true on success, false if i is out of bounds.
 func GetRegByIndex(i int) (uint32, bool) {
-	if i < 0 || i >= len(RegMap) {
+	ptr, ok := GetRegPtrByIndex(i)
+	if ! ok {
 		return 0, false
 	}
-	return *((*uint32)(unsafe.Pointer(uintptr(unsafe.Pointer(RegsU32)) + RegIndex[i]))), true
+	return *ptr, true
 }
 
 // GetRegByName returns the uint32 value of a register, given its name.
@@ -294,13 +308,24 @@ func GetRegByName(x string) (uint32, bool) {
 	return GetRegByIndex(i)
 }
 
+// GetRegPtrByName returns a pointer to the uint32 value of a register, given its name.
+// The second return value is true on success, false if x is not the name of a register.
+func GetRegPtrByName(x string) (RegsU32Ptr, bool) {
+	i, ok := RegMap[x]
+	if !ok {
+		return nil, false
+	}
+	return GetRegPtrByIndex(i)
+}
+
 // SetRegByIndex sets the value of a register, given its index.
 // The second return value is true on success, false if i is out of bounds.
 func SetRegByIndex(i int, v uint32) bool {
-	if i < 0 || i >= len(RegMap) {
+	ptr, ok := GetRegPtrByIndex(i)
+	if ! ok {
 		return false
 	}
-	*((*uint32)(unsafe.Pointer(uintptr(unsafe.Pointer(RegsU32)) + RegIndex[i]))) = v
+	*ptr = v
 	return true
 }
 
@@ -375,7 +400,7 @@ func Init() {
 	RegIndex = make([]uintptr, 0, t.NumField())
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		if f.Tag.Get("mode") == "rw" {
+		if f.Tag.Get("mode") == "rw" || f.Tag.Get("mode") == "r" {
 			switch f.Type.Size() {
 			case 4:
 				RegKeys = append(RegKeys, f.Name)
@@ -393,6 +418,47 @@ func Init() {
 		}
 	}
 	// DEBUG:	fmt.Println("Got past making RegKeys/RegMap")
+
+	// Because the FPGA build currently (2019-08-02) isn't able to
+	// initialize registers (see https://github.com/jbrzusto/digdar/issues/5 )
+	// we do so here.
+
+	// Ha ha ha - tricked you!  There is no FPGA code that actually sets
+	// the values of these registers from the processing system interface,
+	// so even though we can "write" to these slots in go code, and the
+	// redpitaya processing system treats the writes as successful, the
+	// logic on the FPGA ignores writes to these register addresses.
+	// The result is that these registers are initialized either randomly
+	// or to zero at redpitaya boot time, and can only be updated by the
+	// capture code.
+
+	// Regs.TrigClock = 0
+	// Regs.TrigPrevClock = 0
+	// Regs.ACPClock = 0
+	// Regs.ACPPrevClock = 0
+	// Regs.ARPClock = 0
+	// Regs.ARPPrevClock = 0
+	// Regs.ACPCount = 0
+	// Regs.ARPCount = 0
+	// Regs.ACPPerARP = 0
+	// Regs.ACPAtARP = 0
+	// Regs.ClockSinceACPAtARP = 0
+	// Regs.TrigAtARP = 0
+	// Regs.Clocks = 0
+	// Regs.SavedTrigClock = 0
+	// Regs.SavedTrigPrevClock = 0
+	// Regs.SavedACPClock = 0
+	// Regs.SavedACPPrevClock = 0
+	// Regs.SavedARPClock = 0
+	// Regs.SavedARPPrevClock = 0
+	// Regs.SavedTrigCount = 0
+	// Regs.SavedACPCount = 0
+	// Regs.SavedARPCount = 0
+	// Regs.SavedACPPerARP = 0
+	// Regs.SavedACPAtARP = 0
+	// Regs.SavedClockSinceACPAtARP = 0
+	// Regs.SavedTrigAtARP = 0
+
 	inited = true
 	return
 cleanup:
@@ -401,7 +467,7 @@ cleanup:
 
 // Fini frees Fpga resources.  NB: when would this ever be needed??
 func Fini() {
-	if ! inited {
+	if !inited {
 		return
 	}
 	_ = syscall.Munmap(arpSlice)

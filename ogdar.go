@@ -2,39 +2,43 @@ package main
 
 import (
 	"fmt"
-	. "github.com/jbrzusto/ogdar/fpga"
 	. "github.com/jbrzusto/ogdar/buffer"
+	. "github.com/jbrzusto/ogdar/fpga"
 	"time"
 )
 
+// Radar holds information about the radar.  This will be filled in from
+// the config file.
+var Radar radar
+
+
+// keep track of whether a valid config file was found
+// so we can show the user on the web interface.
+var configFound bool
+
 func main() {
 	Init()
-	fmt.Printf("Clocks is %d\n", Regs.Clocks)
+	configFound = loadConfig()
+	if !configFound {
+		fmt.Println("--- CRITICAL WARNING! ---\n\n  Config file 'ogdar.toml' not found.\n\nI am using a (likely bogus) default config.\n\n")
+		setDefaultConfig()
+	}
+	fmt.Printf("Using radar: \n%+v\n", Radar)
+	buffer := SampleBuff{}
+	clks, _ := GetRegPtrByName("Clocks_lo")
+	fmt.Printf("Clocks pointer is %p\n", clks)
+	fmt.Printf("Clocks is %d\n", *clks)
+	fmt.Printf("Length of buffer is %d\n", len(buffer.SampBuff))
 	for i := 1; i < NumRegs(); i++ {
 		if i != 0 {
-			n, _ := GetRegByIndex(i)
-			fmt.Printf("%-25s: %x\n", RegName(i), n)
+			p, _ := GetRegPtrByIndex(i)
+			fmt.Printf("%-25s: *(%p) = %d\n", RegName(i), p, *p)
 		}
 	}
-	fmt.Printf("DecRate @%p is %x\n", &Regs.DecRate, Regs.DecRate)
-	ttr, _ := GetRegByName("TrigThreshRelax")
-	fmt.Printf("TrigThreshRelax @%p is %x or via RegsU32 %x\n", &Regs.TrigThreshRelax, Regs.TrigThreshRelax, ttr )
-	Regs.TrigThreshRelax = 0x5678
-	SetRegByName("TrigThreshRelax", 0x5678)
-	ttr, _ = GetRegByName("TrigThreshRelax")
-	fmt.Printf("TrigThreshRelax @%p is %x or via RegsU32 %x\n", &Regs.TrigThreshRelax, Regs.TrigThreshRelax, ttr )
-	tc1 := Regs.TrigCount
-	arp, _ := GetRegByName("ARPRaw")
-	fmt.Printf("Clocks @%p is %d, ARPRaw is %x, TrigAtARP=%d\n", &Regs.Clocks, Regs.Clocks, arp, Regs.TrigAtARP)
-	time.Sleep(time.Second)
-	arp, _ = GetRegByName("ARPRaw")
-	fmt.Printf("Clocks @%p is %d, ARPRaw is %x, TrigAtARP=%d\n", &Regs.Clocks, Regs.Clocks, arp, Regs.TrigAtARP)
-	time.Sleep(time.Second)
-	arp, _ = GetRegByName("ARPRaw")
-	fmt.Printf("Clocks @%p is %d, ARPRaw is %x, TrigAtARP=%d\n", &Regs.Clocks, Regs.Clocks, arp, Regs.TrigAtARP)
-	tc2 := Regs.TrigCount
-	fmt.Printf("ARP count: %d\nACP per ARP: %d\nPRF: %d\n", Regs.ARPCount, Regs.ACPPerARP, tc2 - tc1)
-	buffer := SampleBuff{}
-	fmt.Printf("Length of buffer is %d\n", len(buffer.SampBuff))
+	nt := Regs.TrigCount
+	for i := 1; i < 100; i++ {
+		time.Sleep(time.Second)
+		fmt.Printf("Clocks = %d, PRF = %d, ARPCount = %d, ACPPerARP = %d\n", *clks, (Regs.TrigCount-nt)/uint32(i), Regs.ARPCount, Regs.ACPPerARP)
+	}
 	Fini()
 }
